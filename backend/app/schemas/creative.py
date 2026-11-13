@@ -14,6 +14,7 @@ class CreativeGenerateRequest(BaseModel):
     tone: str = "Direct & Science-Backed"
     cta_type: str = "Save Post / Link in Bio"
     archetype: Optional[str] = "High-Contrast Technical Minimalist"
+    reference_id: Optional[str] = None
 
 class CreativeCreate(BaseModel):
     brand_id: str

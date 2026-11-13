@@ -83,6 +83,32 @@ export const SocialAccountsPage = () => {
         </Button>
       </div>
 
+      {/* Step 1: Connect Social Media Project Onboarding Banner */}
+      <div className="p-4 rounded-xl bg-indigo-50/70 border border-indigo-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+            1
+          </div>
+          <div>
+            <p className="font-semibold text-xs sm:text-sm text-indigo-950">
+              Automation Project: <span className="underline decoration-indigo-400">{activeBrand?.name || 'My Brand'}</span> — Step 1: Connect Social Media
+            </p>
+            <p className="text-xs text-indigo-800/80 mt-0.5">
+              Connect your Instagram Business, LinkedIn, or Twitter accounts below to authorize automated carousel publishing.
+            </p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant="primary"
+          icon={Plus}
+          onClick={() => setIsConnectModalOpen(true)}
+          className="shrink-0"
+        >
+          Connect New Account
+        </Button>
+      </div>
+
       {/* Security Architecture Callout */}
       <Card className="p-4 bg-slate-50 border-slate-200 flex items-start gap-3">
         <Lock className="w-5 h-5 text-slate-700 shrink-0 mt-0.5" />

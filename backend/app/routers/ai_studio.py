@@ -23,6 +23,20 @@ def generate_creative(payload: CreativeGenerateRequest, db: Session = Depends(ge
         "voice": prof.get("voice", {})
     }
 
+    # Check if a specific visual reference was chosen to guide style & palette
+    target_archetype = payload.archetype or "High-Contrast Technical Minimalist"
+    custom_palette = None
+    if payload.reference_id:
+        from app.models.reference import ReferenceAsset
+        ref_asset = db.query(ReferenceAsset).filter(ReferenceAsset.id == payload.reference_id).first()
+        if ref_asset and ref_asset.analysis:
+            if ref_asset.analysis.archetype:
+                target_archetype = ref_asset.analysis.archetype
+            if ref_asset.analysis.palette:
+                custom_palette = ref_asset.analysis.palette
+            if ref_asset.analysis.ocr_text:
+                knowledge_context["reference_benchmark_style"] = ref_asset.analysis.ocr_text
+
     target_slides = payload.slides_count if payload.content_type == "carousel" else 1
 
     # Step 1: Synthesize platform copy and hashtags via AI Gateway with brand knowledge
@@ -44,8 +58,13 @@ def generate_creative(payload: CreativeGenerateRequest, db: Session = Depends(ge
         topic_brief=payload.topic_brief,
         slides_count=target_slides,
         platform=payload.platform,
-        archetype=payload.archetype or "High-Contrast Technical Minimalist"
+        archetype=target_archetype
     )
+
+    if custom_palette and len(custom_palette) >= 3:
+        blueprint.palette.primary = custom_palette[0]
+        blueprint.palette.secondary = custom_palette[1]
+        blueprint.palette.accent = custom_palette[2]
 
     # Apply live AI generated slide copy if available
     slides_override = copy_result.get("slides_override")

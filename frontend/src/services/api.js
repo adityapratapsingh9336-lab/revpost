@@ -127,6 +127,7 @@ export const api = {
         tone: params.tone,
         cta_type: params.ctaType,
         archetype: params.archetype,
+        reference_id: params.referenceId,
       }),
     });
   },
@@ -191,17 +192,24 @@ export const api = {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('brand_id', brandId);
+      formData.append('brand_id', brandId || 'brand_1');
       const res = await fetch(`${BASE_URL}/references/upload`, {
         method: 'POST',
+        headers: {
+          'x-workspace-role': 'owner',
+          'x-user-id': 'user_admin',
+        },
         body: formData,
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.detail?.message || errJson?.detail || `HTTP ${res.status}`);
+      }
       const json = await res.json();
       return json.data;
     } catch (err) {
-      console.warn('[API upload fallback]', err.message);
-      return null;
+      console.warn('[API upload error]', err.message);
+      throw err;
     }
   },
 

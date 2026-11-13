@@ -64,23 +64,28 @@ export const ReferenceStudioPage = () => {
     if (!file) return;
     setIsUploading(true);
     try {
-      const result = await api.uploadReferenceFile(file, activeBrand.id);
+      const brandId = activeBrand?.id || 'brand_1';
+      const result = await api.uploadReferenceFile(file, brandId);
       if (result) {
         const newRef = {
           id: result.id,
           title: result.title,
-          source: `Uploaded File (${result.dimensions})`,
+          source: `Uploaded File (${result.dimensions || 'Image'})`,
+          thumbnailUrl: result.thumbnailUrl,
           uploadedAt: new Date().toISOString().split('T')[0],
           status: 'Processed',
-          confidenceScore: result.confidence_score || 93.5,
-          tags: ['Real Upload', result.dimensions, 'Palette Extracted'],
-          ocrText: result.ocr_text,
-          extractedPalette: result.extracted_palette || ['#0F172A', '#F8FAFC'],
-          archetype: result.archetype,
+          confidenceScore: result.confidence_score || 94.0,
+          tags: ['Benchmark', result.dimensions || '4:5 Format', 'Palette Extracted'],
+          ocrText: result.ocr_text || 'Visual benchmark analyzed and indexed.',
+          extractedPalette: result.extracted_palette || result.extractedPalette || ['#0F172A', '#F8FAFC', '#3B82F6'],
+          archetype: result.archetype || 'Modern High-Contrast Minimalist',
         };
         setReferences(prev => [newRef, ...prev]);
         setSelectedRef(newRef);
       }
+    } catch (err) {
+      console.error('Upload failed:', err);
+      alert(`Upload error: ${err.message || 'Could not process image'}`);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -89,20 +94,30 @@ export const ReferenceStudioPage = () => {
 
   const handleSimulatedUpload = async (e) => {
     e.stopPropagation();
-    const serverResult = await api.simulateUploadReference(activeBrand.id, 'Uploaded Benchmark Creative');
-    const newRef = {
-      id: serverResult?.id || `ref_${Date.now()}`,
-      title: serverResult?.title || 'Uploaded Creative Benchmark',
-      source: 'Direct Upload',
-      uploadedAt: new Date().toISOString().split('T')[0],
-      status: 'Processed',
-      confidenceScore: serverResult?.confidence_score || 92,
-      tags: ['Benchmark', 'Editorial Layout', 'High Contrast'],
-      ocrText: 'RECOVER 2X FASTER. The compression architecture proven in endurance trials.',
-      extractedPalette: ['#0F172A', '#F8FAFC', '#2563EB', '#94A3B8'],
-      archetype: serverResult?.archetype || 'Editorial Stat Callout',
-    };
-    setReferences([newRef, ...references]);
+    setIsUploading(true);
+    try {
+      const brandId = activeBrand?.id || 'brand_1';
+      const serverResult = await api.simulateUploadReference(brandId, 'Uploaded Benchmark Creative');
+      const newRef = {
+        id: serverResult?.id || `ref_${Date.now()}`,
+        title: serverResult?.title || 'Uploaded Creative Benchmark',
+        source: 'Simulated Ingestion',
+        thumbnailUrl: null,
+        uploadedAt: new Date().toISOString().split('T')[0],
+        status: 'Processed',
+        confidenceScore: serverResult?.confidence_score || 92,
+        tags: ['Benchmark', 'Editorial Layout', 'High Contrast'],
+        ocrText: 'RECOVER 2X FASTER. The compression architecture proven in endurance trials.',
+        extractedPalette: ['#0F172A', '#F8FAFC', '#2563EB', '#94A3B8'],
+        archetype: serverResult?.archetype || 'Editorial Stat Callout',
+      };
+      setReferences(prev => [newRef, ...prev]);
+      setSelectedRef(newRef);
+    } catch (err) {
+      alert(`Simulation failed: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -213,27 +228,40 @@ export const ReferenceStudioPage = () => {
             >
             <div>
               {/* Card visual banner preview */}
-              <div className="h-32 rounded-lg bg-slate-900 text-white p-4 flex flex-col justify-between border border-slate-800 relative overflow-hidden mb-3">
+              <div className="h-44 rounded-lg bg-slate-900 text-white p-3.5 flex flex-col justify-between border border-slate-800 relative overflow-hidden mb-3">
+                {item.thumbnailUrl ? (
+                  <img
+                    src={item.thumbnailUrl}
+                    alt={item.title}
+                    className="absolute inset-0 w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
+
                 <div className="flex items-center justify-between z-10">
-                  <Badge variant="primary" className="bg-white/20 border-white/20 text-white text-[10px]">
+                  <Badge variant="primary" className="bg-black/60 backdrop-blur-xs border-white/20 text-white text-[10px]">
                     {item.archetype}
                   </Badge>
-                  <span className="text-[10px] font-mono text-slate-400">
+                  <span className="text-[10px] font-mono text-white/90 bg-black/60 backdrop-blur-xs px-2 py-0.5 rounded border border-white/10">
                     Score: {item.confidenceScore}%
                   </span>
                 </div>
-                <p className="text-xs font-semibold text-white/90 line-clamp-2 z-10">
-                  "{item.ocrText}"
-                </p>
-                <div className="flex items-center gap-1.5 z-10">
-                  {item.extractedPalette.map((col, i) => (
-                    <span
-                      key={i}
-                      className="w-3.5 h-3.5 rounded-full border border-white/20"
-                      style={{ backgroundColor: col }}
-                      title={col}
-                    />
-                  ))}
+                <div className="z-10 mt-auto pt-2">
+                  <p className="text-xs font-semibold text-white/95 line-clamp-2 drop-shadow-sm mb-2">
+                    "{item.ocrText}"
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    {item.extractedPalette.map((col, i) => (
+                      <span
+                        key={i}
+                        className="w-4 h-4 rounded-full border border-white/40 shadow-xs"
+                        style={{ backgroundColor: col }}
+                        title={col}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -292,6 +320,17 @@ export const ReferenceStudioPage = () => {
                   <X className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* Uploaded Reference Image Full Preview */}
+              {selectedRef.thumbnailUrl && (
+                <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950 flex items-center justify-center p-2">
+                  <img
+                    src={selectedRef.thumbnailUrl}
+                    alt={selectedRef.title}
+                    className="max-h-64 w-auto object-contain rounded-lg"
+                  />
+                </div>
+              )}
 
               {/* Archetype & Score */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">

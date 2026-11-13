@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import {
   Sparkles,
@@ -14,17 +14,28 @@ import {
   ChevronRight,
   Info,
   CheckCircle2,
-  Cpu
+  Cpu,
+  UploadCloud,
+  Plus,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { mockCreatives } from '../data/mockData';
 import { api } from '../services/api';
+import { cn } from '../utils/cn';
 
 export const AIStudioPage = () => {
   const navigate = useNavigate();
   const { activeBrand } = useOutletContext();
+
+  // Reference Benchmark Selection
+  const [references, setReferences] = useState([]);
+  const [selectedReference, setSelectedReference] = useState(null);
+  const [isLoadingRefs, setIsLoadingRefs] = useState(false);
+  const [isUploadingRef, setIsUploadingRef] = useState(false);
+  const studioFileRef = useRef(null);
 
   // Generator form inputs
   const [platform, setPlatform] = useState('Instagram');
@@ -49,6 +60,52 @@ export const AIStudioPage = () => {
   // Active creative being displayed/edited
   const [creative, setCreative] = useState(mockCreatives[0]);
 
+  useEffect(() => {
+    let mounted = true;
+    setIsLoadingRefs(true);
+    const brandId = activeBrand?.id || 'brand_1';
+    api.getReferences(brandId).then((items) => {
+      if (mounted) {
+        const list = items || [];
+        setReferences(list);
+        if (list.length > 0) {
+          setSelectedReference(list[0]);
+          if (list[0].archetype) setArchetype(list[0].archetype);
+        }
+        setIsLoadingRefs(false);
+      }
+    });
+    return () => { mounted = false; };
+  }, [activeBrand?.id]);
+
+  const handleStudioUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingRef(true);
+    try {
+      const brandId = activeBrand?.id || 'brand_1';
+      const result = await api.uploadReferenceFile(file, brandId);
+      if (result) {
+        const newRef = {
+          id: result.id,
+          title: result.title,
+          thumbnailUrl: result.thumbnailUrl,
+          archetype: result.archetype || 'Modern High-Contrast Minimalist',
+          extractedPalette: result.extracted_palette || result.extractedPalette || ['#0F172A', '#3B82F6', '#F8FAFC'],
+          confidenceScore: result.confidence_score || 94,
+        };
+        setReferences(prev => [newRef, ...prev]);
+        setSelectedReference(newRef);
+        setArchetype(newRef.archetype);
+      }
+    } catch (err) {
+      alert(`Upload error: ${err.message}`);
+    } finally {
+      setIsUploadingRef(false);
+      if (studioFileRef.current) studioFileRef.current.value = '';
+    }
+  };
+
   const generationSteps = [
     'Parsing Brief & Extracting Brand Knowledge...',
     'Querying Visual DNA Rules v1.4 & Allowlisted Components...',
@@ -65,9 +122,10 @@ export const AIStudioPage = () => {
     }, 450);
 
     try {
-      // Call live FastAPI AI Gateway
+      // Call live FastAPI AI Gateway with brand knowledge & selected reference benchmark
+      const brandId = activeBrand?.id || 'brand_1';
       const serverResult = await api.generateCreative({
-        brandId: activeBrand.id,
+        brandId,
         topicBrief,
         platform,
         format,
@@ -77,6 +135,8 @@ export const AIStudioPage = () => {
         tone,
         ctaType,
         archetype,
+        referenceId: selectedReference?.id,
+        referenceArchetype: selectedReference?.archetype,
       });
 
       clearInterval(stepInterval);
@@ -207,6 +267,109 @@ export const AIStudioPage = () => {
               <Sliders className="w-4 h-4 text-slate-600" /> Creative Parameters
             </h2>
             <span className="text-[11px] font-mono text-slate-400">Step 1 of 2</span>
+          </div>
+
+          {/* 1. Reference Benchmark Selector */}
+          <div className="pb-4 border-b border-slate-100 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Reference Post Benchmark</span>
+              </label>
+              <input
+                ref={studioFileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleStudioUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => studioFileRef.current?.click()}
+                disabled={isUploadingRef}
+                className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                <span>{isUploadingRef ? 'Uploading...' : 'Upload Reference'}</span>
+              </button>
+            </div>
+
+            {references.length === 0 ? (
+              <div
+                onClick={() => studioFileRef.current?.click()}
+                className="p-3.5 border border-dashed border-slate-200 hover:border-indigo-400 rounded-xl bg-slate-50/50 hover:bg-indigo-50/20 text-center cursor-pointer transition-all"
+              >
+                <UploadCloud className="w-5 h-5 mx-auto text-slate-400 mb-1" />
+                <p className="text-xs font-medium text-slate-700">No reference benchmarks uploaded</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Click here to upload an inspirational post to guide AI design</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                {references.map((ref) => {
+                  const isSelected = selectedReference?.id === ref.id;
+                  return (
+                    <div
+                      key={ref.id}
+                      onClick={() => {
+                        setSelectedReference(ref);
+                        if (ref.archetype) setArchetype(ref.archetype);
+                      }}
+                      className={cn(
+                        'p-2 rounded-xl border text-left cursor-pointer transition-all relative overflow-hidden flex flex-col justify-between group',
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50/30 ring-2 ring-indigo-500/20 shadow-xs'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                      )}
+                    >
+                      <div className="h-16 w-full rounded-lg bg-slate-900 relative overflow-hidden mb-1.5">
+                        {ref.thumbnailUrl ? (
+                          <img
+                            src={ref.thumbnailUrl}
+                            alt={ref.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-slate-900 text-slate-400 text-[10px]">
+                            {ref.archetype}
+                          </div>
+                        )}
+                        {isSelected && (
+                          <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                            <Check className="w-2.5 h-2.5" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[11px] font-semibold text-slate-900 line-clamp-1">{ref.title}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-mono text-slate-500 truncate max-w-[80px]">{ref.archetype}</span>
+                          <div className="flex items-center gap-0.5">
+                            {(ref.extractedPalette || []).slice(0, 3).map((hex, i) => (
+                              <span
+                                key={i}
+                                className="w-1.5 h-1.5 rounded-full border border-slate-300"
+                                style={{ backgroundColor: hex }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {selectedReference && (
+              <div className="p-2 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
+                <span className="text-slate-600 font-medium truncate max-w-[200px]">
+                  Guided by: <strong className="text-slate-900">{selectedReference.title}</strong>
+                </span>
+                <Badge variant="indigo" className="text-[10px] shrink-0">
+                  {selectedReference.archetype}
+                </Badge>
+              </div>
+            )}
           </div>
 
           {/* Platform & Format */}
