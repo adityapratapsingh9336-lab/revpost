@@ -13,18 +13,27 @@ router = APIRouter(prefix="/api/v1/ai", tags=["AI Studio"])
 @router.post("/generate", response_model=ApiResponse[dict])
 def generate_creative(payload: CreativeGenerateRequest, db: Session = Depends(get_db)):
     brand = db.query(Brand).filter(Brand.id == payload.brand_id).first()
-    brand_name = brand.name if brand else "PulseFit Athletics"
+    brand_name = brand.name if brand else "My Brand"
+    prof = brand.brand_profile or {} if brand else {}
+
+    knowledge_context = {
+        "products": prof.get("products", []),
+        "restrictions": prof.get("restrictions", []),
+        "audience": prof.get("audience", {}),
+        "voice": prof.get("voice", {})
+    }
 
     target_slides = payload.slides_count if payload.content_type == "carousel" else 1
 
-    # Step 1: Synthesize platform copy and hashtags via AI Gateway
+    # Step 1: Synthesize platform copy and hashtags via AI Gateway with brand knowledge
     copy_result = AIGateway.generate_copy_and_hooks(
         topic_brief=payload.topic_brief,
         brand_name=brand_name,
         brand_voice=payload.tone,
         platform=payload.platform,
         objective=payload.objective,
-        slides_count=target_slides
+        slides_count=target_slides,
+        knowledge_context=knowledge_context
     )
 
     # Step 2: Synthesize structured Design Blueprint JSON

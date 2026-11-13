@@ -81,15 +81,34 @@ class AIGateway:
         brand_voice: str,
         platform: str,
         objective: str,
-        slides_count: int = 5
+        slides_count: int = 5,
+        knowledge_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Synthesizes platform caption, hook headline, hashtags, and optional slide copy.
-        Calls live OpenAI or Google Gemini APIs when configured, else uses structured deterministic synthesis.
+        Calls live OpenAI or Google Gemini APIs when configured, incorporating brand knowledge context.
         """
         start_ms = time.time()
         openai_key = cls.get_active_key("openai")
         gemini_key = cls.get_active_key("gemini")
+
+        # Format brand knowledge context constraints into the prompt
+        knowledge_str = ""
+        if knowledge_context:
+            products = knowledge_context.get("products", [])
+            if products and isinstance(products, list):
+                prod_names = ", ".join([f"{p.get('name', '')} ({p.get('usp', '')})" for p in products[:3] if isinstance(p, dict)])
+                if prod_names:
+                    knowledge_str += f"\nBrand Products to subtly incorporate or align with: {prod_names}"
+            audience = knowledge_context.get("audience", {})
+            if isinstance(audience, dict) and audience.get("painPoints"):
+                knowledge_str += f"\nTarget Audience Pain Points to resolve: {audience.get('painPoints')}"
+            restrictions = knowledge_context.get("restrictions", [])
+            if restrictions and isinstance(restrictions, list):
+                knowledge_str += f"\nNegative Constraints (DO NOT VIOLATE): {'; '.join([str(r) for r in restrictions[:3]])}"
+            voice = knowledge_context.get("voice", {})
+            if isinstance(voice, dict) and voice.get("prohibitedWords"):
+                knowledge_str += f"\nForbidden Words to avoid: {', '.join([str(w) for w in voice.get('prohibitedWords')[:5]])}"
 
         # Attempt Live OpenAI Inference if key is configured
         if openai_key:
@@ -98,7 +117,7 @@ class AIGateway:
                 client = OpenAI(api_key=openai_key)
                 prompt = (
                     f"Create a concise, high-impact social media post blueprint for {brand_name} on {platform}.\n"
-                    f"Topic: {topic_brief}\nObjective: {objective}\nTone: {brand_voice}\n"
+                    f"Topic: {topic_brief}\nObjective: {objective}\nTone: {brand_voice}{knowledge_str}\n"
                     f"Return strictly valid JSON with keys: title (max 55 chars), caption, hashtags (array of 4 strings), "
                     f"slides (array of {slides_count} objects each with badge, headline, subhead)."
                 )
@@ -130,7 +149,7 @@ class AIGateway:
                 model = genai.GenerativeModel("gemini-1.5-flash")
                 prompt = (
                     f"Return ONLY raw JSON (no markdown fences) for a social media post for {brand_name} on {platform}. "
-                    f"Topic: {topic_brief}. Objective: {objective}. Tone: {brand_voice}. "
+                    f"Topic: {topic_brief}. Objective: {objective}. Tone: {brand_voice}. {knowledge_str} "
                     f"JSON schema: {{\"title\": string, \"caption\": string, \"hashtags\": [string], \"slides\": [{{\"badge\": string, \"headline\": string, \"subhead\": string}}] ({slides_count} items)}}"
                 )
                 resp = model.generate_content(prompt)
