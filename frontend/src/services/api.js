@@ -11,7 +11,8 @@ import {
   mockWorkspaces
 } from '../data/mockData';
 
-const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/^["']|["']$/g, '');
+const API_ORIGIN = rawApiUrl.replace(/\/$/, '');
 const BASE_URL = `${API_ORIGIN}/api/v1`;
 
 async function safeFetch(url, options = {}) {
@@ -203,7 +204,8 @@ export const api = {
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => null);
-        throw new Error(errJson?.detail?.message || errJson?.detail || `HTTP ${res.status}`);
+        const errMsg = errJson?.error?.message || errJson?.detail?.message || errJson?.detail || `HTTP ${res.status}: ${res.statusText}`;
+        throw new Error(errMsg);
       }
       const json = await res.json();
       return json.data;

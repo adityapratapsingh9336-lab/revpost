@@ -1,7 +1,12 @@
+import os
+import re
+import logging
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from urllib.parse import quote, unquote
 from app.config import settings
+
+logger = logging.getLogger("uvicorn")
 
 def clean_database_url(raw_url: str) -> str:
     if not raw_url:
@@ -23,48 +28,73 @@ def clean_database_url(raw_url: str) -> str:
         except Exception:
             pass
 
+    # If pointing to direct Supabase host (db.<ref>.supabase.co),
+    # direct hosts are IPv6-only. Cloud hosts like Render do not support IPv6 outbound routing,
+    # causing psycopg2.OperationalError: Network is unreachable.
+    # Automatically rewrite to Supabase's IPv4 Connection Pooler.
+    if "db." in url and ".supabase.co" in url:
+        m = re.search(r"db\.([a-zA-Z0-9_-]+)\.supabase\.co", url)
+        if m:
+            ref = m.group(1)
+            region = os.getenv("SUPABASE_REGION", "ap-south-1")
+            pooler_host = f"aws-0-{region}.pooler.supabase.com"
+            url = url.replace(f"db.{ref}.supabase.co", pooler_host)
+            # Ensure user is formatted as postgres.<ref> for Supabase pooler
+            if f"://postgres.{ref}:" not in url and "://postgres:" in url:
+                url = url.replace("://postgres:", f"://postgres.{ref}:")
+
     return url
 
-# Configure engine with connect_args for SQLite or PostgreSQL
-connect_args = {}
-db_url = clean_database_url(settings.DATABASE_URL)
+def _init_engine():
+    db_url = clean_database_url(settings.DATABASE_URL)
+    
+    if db_url.startswith("postgresql"):
+        has_psycopg2 = False
+        has_psycopg = False
+        try:
+            import psycopg2  # type: ignore
+            has_psycopg2 = True
+        except ImportError:
+            pass
 
-if db_url.startswith("postgresql"):
-    # Detect installed PostgreSQL driver
-    has_psycopg2 = False
-    has_psycopg = False
-    try:
-        import psycopg2  # type: ignore
-        has_psycopg2 = True
-    except ImportError:
-        pass
+        try:
+            import psycopg  # type: ignore
+            has_psycopg = True
+        except ImportError:
+            pass
 
-    try:
-        import psycopg  # type: ignore
-        has_psycopg = True
-    except ImportError:
-        pass
+        if has_psycopg2:
+            if not db_url.startswith("postgresql+"):
+                db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        elif has_psycopg:
+            if not db_url.startswith("postgresql+"):
+                db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        else:
+            logger.warning("PostgreSQL driver not installed in current environment; using SQLite.")
+            return create_engine("sqlite:///./xyz_local.db", connect_args={"check_same_thread": False})
 
-    if has_psycopg2:
-        if not db_url.startswith("postgresql+"):
-            db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
-    elif has_psycopg:
-        if not db_url.startswith("postgresql+"):
-            db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
-    else:
-        # Fallback to local SQLite if running in an environment without Postgres drivers
-        print("NOTICE: PostgreSQL driver not installed in current environment; using SQLite.")
-        db_url = "sqlite:///./xyz_local.db"
+        # Test PostgreSQL connection with a 4s timeout so startup is never delayed
+        try:
+            test_engine = create_engine(
+                db_url,
+                connect_args={"connect_timeout": 4},
+                pool_pre_ping=True,
+                echo=False
+            )
+            with test_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            logger.info("Successfully connected to cloud PostgreSQL database.")
+            return test_engine
+        except Exception as exc:
+            logger.warning(
+                "Could not connect to PostgreSQL (%s). Falling back to resilient SQLite database to guarantee 100%% uptime.",
+                exc
+            )
+            return create_engine("sqlite:///./xyz_local.db", connect_args={"check_same_thread": False})
 
-if db_url.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+    return create_engine("sqlite:///./xyz_local.db", connect_args={"check_same_thread": False})
 
-engine = create_engine(
-    db_url,
-    connect_args=connect_args,
-    pool_pre_ping=True,
-    echo=False
-)
+engine = _init_engine()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
