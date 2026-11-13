@@ -1,13 +1,60 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
+from urllib.parse import quote, unquote
 from app.config import settings
 
-# Configure engine with connect_args for SQLite if applicable
+def clean_database_url(raw_url: str) -> str:
+    if not raw_url:
+        return "sqlite:///./xyz_local.db"
+    
+    url = raw_url.strip().strip("'").strip('"')
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+        
+    if "://" in url and ("@" in url):
+        try:
+            proto, rest = url.split("://", 1)
+            if "@" in rest:
+                creds, host_part = rest.rsplit("@", 1)
+                if ":" in creds:
+                    user, pwd = creds.split(":", 1)
+                    clean_pwd = quote(unquote(pwd))
+                    url = f"{proto}://{user}:{clean_pwd}@{host_part}"
+        except Exception:
+            pass
+
+    return url
+
+# Configure engine with connect_args for SQLite or PostgreSQL
 connect_args = {}
-db_url = settings.DATABASE_URL
-if db_url.startswith("postgres://"):
-    # SQLAlchemy requires postgresql:// protocol identifier
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+db_url = clean_database_url(settings.DATABASE_URL)
+
+if db_url.startswith("postgresql"):
+    # Detect installed PostgreSQL driver
+    has_psycopg2 = False
+    has_psycopg = False
+    try:
+        import psycopg2  # type: ignore
+        has_psycopg2 = True
+    except ImportError:
+        pass
+
+    try:
+        import psycopg  # type: ignore
+        has_psycopg = True
+    except ImportError:
+        pass
+
+    if has_psycopg2:
+        if not db_url.startswith("postgresql+"):
+            db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    elif has_psycopg:
+        if not db_url.startswith("postgresql+"):
+            db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    else:
+        # Fallback to local SQLite if running in an environment without Postgres drivers
+        print("NOTICE: PostgreSQL driver not installed in current environment; using SQLite.")
+        db_url = "sqlite:///./xyz_local.db"
 
 if db_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}

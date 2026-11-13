@@ -4,6 +4,15 @@ from datetime import datetime
 
 router = APIRouter(tags=["Health"])
 
+@router.get("/")
+def root_index():
+    return {
+        "status": "ok",
+        "service": "XYZ Social AI Backend",
+        "docs": "/docs",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
 @router.get("/health")
 def root_health():
     return {

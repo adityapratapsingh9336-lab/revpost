@@ -1,3 +1,5 @@
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -5,14 +7,24 @@ from app.config import settings
 from app.database import engine, Base, ensure_sqlite_columns
 import app.models  # Ensure all models are registered with Base
 
-# Automatically create all tables in local or configured database
-Base.metadata.create_all(bind=engine)
-ensure_sqlite_columns()
+logger = logging.getLogger("uvicorn")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Safely ensure all database tables are created on startup
+    try:
+        Base.metadata.create_all(bind=engine)
+        ensure_sqlite_columns()
+        logger.info("Database connection and tables verified successfully.")
+    except Exception as exc:
+        logger.warning("Database startup check encountered an issue (will retry upon request): %s", exc)
+    yield
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Backend API for XYZ — AI-Powered Social Media Management SaaS",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS configuration (Local dev + Vercel deployments + custom ALLOWED_ORIGINS)
