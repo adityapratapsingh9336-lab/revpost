@@ -56,6 +56,7 @@ export const AIStudioPage = () => {
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [hasCopiedCaption, setHasCopiedCaption] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [useReferenceBackdrop, setUseReferenceBackdrop] = useState(true);
 
   // Active creative being displayed/edited
   const [creative, setCreative] = useState(mockCreatives[0]);
@@ -205,6 +206,27 @@ export const AIStudioPage = () => {
     navigator.clipboard.writeText(creative.caption);
     setHasCopiedCaption(true);
     setTimeout(() => setHasCopiedCaption(false), 2000);
+  };
+
+  const handleExportSingleSlide = async () => {
+    setIsExporting(true);
+    try {
+      const activeSlide = creative.slides?.[activeSlideIndex] || {
+        headline: topicBrief,
+        subhead: activeBrand.name,
+        badge: `SLIDE [0${activeSlideIndex + 1}]`
+      };
+      await api.exportSingleSlide(
+        activeSlide,
+        activeSlideIndex,
+        creative.slides?.length || 1,
+        activeBrand.name
+      );
+    } catch (err) {
+      console.error('Slide export failed:', err);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleExport = async () => {
@@ -531,18 +553,21 @@ export const AIStudioPage = () => {
             </select>
           </div>
 
-          {/* Submit Action */}
-          <div className="pt-2">
+          {/* Submit Action (Sticky at bottom of left panel) */}
+          <div className="pt-3 sticky bottom-0 bg-white/95 backdrop-blur-sm pb-1 border-t border-slate-100 z-10">
             <Button
               variant="primary"
               size="lg"
-              className="w-full"
+              className="w-full py-3 shadow-md"
               isLoading={isGenerating}
               icon={Sparkles}
               onClick={handleGenerate}
             >
               {isGenerating ? 'Synthesizing Blueprint...' : 'Generate Creative Blueprint'}
             </Button>
+            <p className="text-[11px] text-center text-slate-500 mt-1.5 font-medium">
+              ⚡ Click above to run AI engine with {selectedReference ? `"${selectedReference.title}"` : 'Brand DNA'}
+            </p>
           </div>
         </Card>
 
@@ -571,7 +596,7 @@ export const AIStudioPage = () => {
           {/* Live Preview Container */}
           <Card className="p-6 bg-white border-slate-200">
             {/* Top Preview Controls */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-slate-900">
                   Live Canvas Preview
@@ -580,12 +605,35 @@ export const AIStudioPage = () => {
                 <Badge variant="indigo">{creative.archetype}</Badge>
               </div>
 
-              {creative.slides && creative.slides.length > 1 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-slate-500">
-                    Slide {activeSlideIndex + 1} of {creative.slides.length}
-                  </span>
-                  <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
+                {selectedReference?.thumbnailUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setUseReferenceBackdrop(!useReferenceBackdrop)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+                    title="Toggle visual reference image backdrop"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>{useReferenceBackdrop ? 'Image Backdrop: On' : 'Image Backdrop: Off'}</span>
+                  </button>
+                )}
+
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={Download}
+                  isLoading={isExporting}
+                  onClick={handleExportSingleSlide}
+                  title="Download this slide as a high-resolution PNG image"
+                >
+                  Download PNG
+                </Button>
+
+                {creative.slides && creative.slides.length > 1 && (
+                  <div className="flex items-center gap-1 pl-2 border-l border-slate-200">
+                    <span className="text-xs font-mono text-slate-500 mr-1">
+                      {activeSlideIndex + 1}/{creative.slides.length}
+                    </span>
                     <Button
                       size="iconSm"
                       variant="secondary"
@@ -603,37 +651,53 @@ export const AIStudioPage = () => {
                       <ChevronRight className="w-3.5 h-3.5" />
                     </Button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* The Actual Rendered Slide Canvas */}
             <div className="py-6 flex justify-center">
-              <div className="w-full max-w-sm aspect-[4/5] bg-slate-900 text-white rounded-xl p-8 flex flex-col justify-between shadow-dropdown border border-slate-800 relative select-none">
+              <div
+                className="w-full max-w-sm aspect-[4/5] text-white rounded-xl p-8 flex flex-col justify-between shadow-dropdown border border-slate-800 relative select-none overflow-hidden"
+                style={{
+                  backgroundColor: selectedReference?.extractedPalette?.[0] || '#0F172A'
+                }}
+              >
+                {/* Visual Backdrop: Reference Image if available and toggled ON */}
+                {useReferenceBackdrop && selectedReference?.thumbnailUrl && (
+                  <>
+                    <div
+                      className="absolute inset-0 bg-cover bg-center transition-all duration-300"
+                      style={{ backgroundImage: `url(${selectedReference.thumbnailUrl})` }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/92 via-slate-950/80 to-slate-950/65 backdrop-blur-[1px]" />
+                  </>
+                )}
+
                 {/* Header */}
                 <div className="flex items-center justify-between z-10">
-                  <span className="text-[10px] tracking-wider font-mono uppercase bg-white/10 px-2 py-0.5 rounded text-slate-300">
+                  <span className="text-[10px] tracking-wider font-mono uppercase bg-white/10 px-2 py-0.5 rounded text-slate-200 backdrop-blur-sm border border-white/10">
                     {creative.slides?.[activeSlideIndex]?.badge || 'PREVIEW'}
                   </span>
-                  <span className="text-[11px] font-mono text-slate-400">
+                  <span className="text-[11px] font-mono text-slate-300 bg-black/30 px-2 py-0.5 rounded backdrop-blur-sm">
                     [0{activeSlideIndex + 1}/0{creative.slides?.length || 1}]
                   </span>
                 </div>
 
                 {/* Content */}
                 <div className="space-y-4 my-auto z-10">
-                  <h3 className="text-xl font-bold tracking-tight text-white leading-tight">
+                  <h3 className="text-xl font-bold tracking-tight text-white leading-tight drop-shadow-sm">
                     {creative.slides?.[activeSlideIndex]?.headline}
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">
+                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-light drop-shadow-sm">
                     {creative.slides?.[activeSlideIndex]?.subhead}
                   </p>
                 </div>
 
                 {/* Footer */}
-                <div className="pt-4 border-t border-white/10 flex items-center justify-between z-10 text-[10px] text-slate-400">
+                <div className="pt-4 border-t border-white/15 flex items-center justify-between z-10 text-[10px] text-slate-300">
                   <span className="font-bold tracking-wider">{activeBrand.name.toUpperCase()}</span>
-                  <span className="font-mono">
+                  <span className="font-mono bg-white/10 px-2 py-0.5 rounded">
                     {activeSlideIndex === (creative.slides?.length || 1) - 1 ? 'VISIT BIO' : 'SWIPE NEXT →'}
                   </span>
                 </div>
