@@ -21,7 +21,7 @@ import { api } from '../services/api';
 
 export const ReferenceStudioPage = () => {
   const { activeBrand } = useOutletContext();
-  const [references, setReferences] = useState(mockReferences);
+  const [references, setReferences] = useState([]);
   const [selectedRef, setSelectedRef] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [isUploading, setIsUploading] = useState(false);
@@ -189,14 +189,28 @@ export const ReferenceStudioPage = () => {
       </div>
 
       {/* Reference Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredRefs.map((item) => (
-          <Card
-            key={item.id}
-            hoverable
-            onClick={() => setSelectedRef(item)}
-            className="cursor-pointer group flex flex-col justify-between p-5 space-y-4"
-          >
+      {filteredRefs.length === 0 ? (
+        <Card className="p-12 text-center flex flex-col items-center justify-center border-dashed border-2 border-slate-200 bg-white">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+            <UploadCloud className="w-6 h-6 text-slate-500" />
+          </div>
+          <h3 className="text-sm font-semibold text-slate-900">No reference assets uploaded yet</h3>
+          <p className="text-xs text-slate-500 max-w-sm mt-1 mb-4">
+            Upload visual benchmarks or top-performing carousels above. The backend will extract palettes, fonts, and layout rules.
+          </p>
+          <Button size="sm" variant="primary" icon={UploadCloud} onClick={() => fileInputRef.current?.click()}>
+            Upload First Reference
+          </Button>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredRefs.map((item) => (
+            <Card
+              key={item.id}
+              hoverable
+              onClick={() => setSelectedRef(item)}
+              className="cursor-pointer group flex flex-col justify-between p-5 space-y-4"
+            >
             <div>
               {/* Card visual banner preview */}
               <div className="h-32 rounded-lg bg-slate-900 text-white p-4 flex flex-col justify-between border border-slate-800 relative overflow-hidden mb-3">
@@ -254,6 +268,7 @@ export const ReferenceStudioPage = () => {
           </Card>
         ))}
       </div>
+      )}
 
       {/* Slide-out Reference Detail Drawer */}
       {selectedRef && (

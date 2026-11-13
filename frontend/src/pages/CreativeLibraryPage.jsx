@@ -17,15 +17,20 @@ import { api } from '../services/api';
 export const CreativeLibraryPage = () => {
   const navigate = useNavigate();
   const { activeBrand } = useOutletContext();
-  const [creatives, setCreatives] = useState(mockCreatives);
+  const [creatives, setCreatives] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
 
   useEffect(() => {
     let mounted = true;
+    setIsLoading(true);
     api.getCreatives(activeBrand?.id).then((items) => {
-      if (mounted && items) setCreatives(items);
+      if (mounted) {
+        setCreatives(items || []);
+        setIsLoading(false);
+      }
     });
     return () => { mounted = false; };
   }, [activeBrand?.id]);
@@ -113,101 +118,122 @@ export const CreativeLibraryPage = () => {
       </Card>
 
       {/* Creative Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filtered.map((item) => (
-          <Card
-            key={item.id}
-            hoverable
-            className="p-5 flex flex-col justify-between group space-y-4"
-          >
-            <div>
-              {/* Visual Preview Header */}
-              <div
-                onClick={() => navigate(`/editor/${item.id}`)}
-                className="h-36 rounded-lg bg-slate-900 text-white p-4 flex flex-col justify-between cursor-pointer border border-slate-800 relative overflow-hidden mb-3"
-              >
-                <div className="flex items-center justify-between z-10">
-                  <Badge variant="primary" className="bg-white/10 text-[10px]">
-                    {item.platform}
-                  </Badge>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    {item.type === 'carousel' ? `${item.slidesCount} Slides` : 'Static'}
+      {filtered.length === 0 ? (
+        <Card className="p-12 text-center flex flex-col items-center justify-center border-dashed border-2 border-slate-200 bg-white">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+            <Layers className="w-6 h-6 text-slate-500" />
+          </div>
+          <h3 className="text-sm font-semibold text-slate-900">
+            {isLoading ? 'Loading creatives...' : 'No creatives yet'}
+          </h3>
+          <p className="text-xs text-slate-500 max-w-sm mt-1 mb-4">
+            {isLoading
+              ? 'Checking your database...'
+              : 'Generate your first original carousel or single-slide post in AI Studio.'}
+          </p>
+          {!isLoading && (
+            <Button variant="primary" size="sm" icon={Plus} onClick={() => navigate('/ai-studio')}>
+              Create in AI Studio
+            </Button>
+          )}
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filtered.map((item) => (
+            <Card
+              key={item.id}
+              hoverable
+              className="p-5 flex flex-col justify-between group space-y-4"
+            >
+              <div>
+                {/* Visual Preview Header */}
+                <div
+                  onClick={() => navigate(`/editor/${item.id}`)}
+                  className="h-36 rounded-lg bg-slate-900 text-white p-4 flex flex-col justify-between cursor-pointer border border-slate-800 relative overflow-hidden mb-3"
+                >
+                  <div className="flex items-center justify-between z-10">
+                    <Badge variant="primary" className="bg-white/10 text-[10px]">
+                      {item.platform}
+                    </Badge>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {item.type === 'carousel' ? `${item.slidesCount || 1} Slides` : 'Static'}
+                    </span>
+                  </div>
+                  <h3 className="text-xs font-bold text-white z-10 line-clamp-2">
+                    {item.slides?.[0]?.headline || item.title}
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono z-10">
+                    {activeBrand?.name || 'My Brand'}
                   </span>
                 </div>
-                <h3 className="text-xs font-bold text-white z-10 line-clamp-2">
-                  {item.slides?.[0]?.headline || item.title}
-                </h3>
-                <span className="text-[10px] text-slate-400 font-mono z-10">
-                  {activeBrand.name}
-                </span>
+
+                <div className="flex items-center justify-between">
+                  <Badge
+                    variant={
+                      (item.status || '').toLowerCase() === 'scheduled'
+                        ? 'info'
+                        : (item.status || '').toLowerCase() === 'published'
+                        ? 'success'
+                        : (item.status || '').toLowerCase().includes('review')
+                        ? 'warning'
+                        : 'secondary'
+                    }
+                  >
+                    {item.status}
+                  </Badge>
+                  <span className="text-[11px] text-slate-400">{item.format}</span>
+                </div>
+
+                <h2 className="text-sm font-semibold text-slate-900 mt-2 line-clamp-2">
+                  {item.title}
+                </h2>
+                <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                  {item.caption}
+                </p>
               </div>
 
-              <div className="flex items-center justify-between">
-                <Badge
-                  variant={
-                    (item.status || '').toLowerCase() === 'scheduled'
-                      ? 'info'
-                      : (item.status || '').toLowerCase() === 'published'
-                      ? 'success'
-                      : (item.status || '').toLowerCase().includes('review')
-                      ? 'warning'
-                      : 'secondary'
-                  }
+              {/* Bottom Actions */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={Edit3}
+                  onClick={() => navigate(`/editor/${item.id}`)}
                 >
-                  {item.status}
-                </Badge>
-                <span className="text-[11px] text-slate-400">{item.format}</span>
+                  Edit Canvas
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="iconSm"
+                    variant="ghost"
+                    title="Duplicate Creative"
+                    onClick={() => handleDuplicate(item.id)}
+                  >
+                    <Copy className="w-3.5 h-3.5 text-slate-500" />
+                  </Button>
+                  <Button
+                    size="iconSm"
+                    variant="ghost"
+                    title="Schedule"
+                    onClick={() => navigate('/calendar')}
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  </Button>
+                  <Button
+                    size="iconSm"
+                    variant="ghost"
+                    title="Delete Creative"
+                    onClick={() => handleDelete(item.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-rose-600" />
+                  </Button>
+                </div>
               </div>
-
-              <h2 className="text-sm font-semibold text-slate-900 mt-2 line-clamp-2">
-                {item.title}
-              </h2>
-              <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                {item.caption}
-              </p>
-            </div>
-
-            {/* Bottom Actions */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                icon={Edit3}
-                onClick={() => navigate(`/editor/${item.id}`)}
-              >
-                Edit Canvas
-              </Button>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  size="iconSm"
-                  variant="ghost"
-                  title="Duplicate Creative"
-                  onClick={() => handleDuplicate(item.id)}
-                >
-                  <Copy className="w-3.5 h-3.5 text-slate-500" />
-                </Button>
-                <Button
-                  size="iconSm"
-                  variant="ghost"
-                  title="Schedule"
-                  onClick={() => navigate('/calendar')}
-                >
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                </Button>
-                <Button
-                  size="iconSm"
-                  variant="ghost"
-                  title="Delete Creative"
-                  onClick={() => handleDelete(item.id)}
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-rose-600" />
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

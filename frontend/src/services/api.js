@@ -75,7 +75,7 @@ export const api = {
   // Brands
   async getBrands() {
     const data = await safeFetch('/brands');
-    return data && data.length > 0 ? data : mockBrands;
+    return Array.isArray(data) ? data : [];
   },
 
   async createBrand(payload) {
@@ -135,12 +135,12 @@ export const api = {
   async getCreatives(brandId) {
     const query = brandId ? `?brand_id=${brandId}` : '';
     const data = await safeFetch(`/creatives${query}`);
-    return data && data.length > 0 ? data : mockCreatives;
+    return Array.isArray(data) ? data : [];
   },
 
   async getCreativeDetail(creativeId) {
     const data = await safeFetch(`/creatives/${creativeId}`);
-    return data || mockCreatives.find(c => c.id === creativeId) || mockCreatives[0];
+    return data || null;
   },
 
   async updateCreative(creativeId, payload) {
@@ -165,7 +165,7 @@ export const api = {
   // Reference Studio
   async getReferences(brandId) {
     const data = await safeFetch(`/references/brand/${brandId}`);
-    return data && data.length > 0 ? data : mockReferences;
+    return Array.isArray(data) ? data : [];
   },
 
   async simulateUploadReference(brandId, title) {
@@ -208,7 +208,7 @@ export const api = {
   // Calendar
   async getCalendarEvents(month = '2026-11') {
     const data = await safeFetch(`/calendar/events?month=${month}`);
-    return data || mockCalendarEvents;
+    return Array.isArray(data) ? data : [];
   },
 
   async schedulePost(payload) {
@@ -224,7 +224,7 @@ export const api = {
     if (data && Array.isArray(data.items)) {
       return data;
     }
-    return { is_paused: false, items: mockPublishingQueue };
+    return { is_paused: false, items: [] };
   },
 
   async togglePublishingPause() {
@@ -243,7 +243,7 @@ export const api = {
   // Social Accounts
   async getSocialAccounts() {
     const data = await safeFetch('/social/accounts');
-    return data || mockSocialAccounts;
+    return Array.isArray(data) ? data : [];
   },
 
   async connectSocialAccount(platform) {

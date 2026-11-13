@@ -31,55 +31,6 @@ def _serialize_reference(r: ReferenceAsset) -> dict:
 @router.get("/brand/{brand_id}", response_model=ApiResponse[List[dict]])
 def get_brand_references(brand_id: str, db: Session = Depends(get_db)):
     refs = db.query(ReferenceAsset).filter(ReferenceAsset.brand_id == brand_id).order_by(ReferenceAsset.created_at.desc()).all()
-    if not refs:
-        # Seed initial starter references
-        ref1 = ReferenceAsset(
-            workspace_id="ws_default",
-            brand_id=brand_id,
-            title="High-Performance Carousel Slide 1 Hook",
-            storage_path="/uploads/ref_1.png",
-            mime_type="image/png",
-            source_url="Instagram Feed Benchmark",
-            permission_notes="Style benchmark only — mathematical layout extraction",
-            processing_status="succeeded"
-        )
-        ref2 = ReferenceAsset(
-            workspace_id="ws_default",
-            brand_id=brand_id,
-            title="Minimalist Product Grid Showcase",
-            storage_path="/uploads/ref_2.png",
-            mime_type="image/png",
-            source_url="Brand Lookbook 2026",
-            permission_notes="First-party owned brand creative",
-            processing_status="succeeded"
-        )
-        db.add_all([ref1, ref2])
-        db.commit()
-        db.refresh(ref1)
-        db.refresh(ref2)
-
-        an1 = ReferenceAnalysis(
-            workspace_id="ws_default",
-            brand_id=brand_id,
-            reference_asset_id=ref1.id,
-            palette=["#0F172A", "#F8FAFC", "#3B82F6", "#64748B"],
-            ocr_text="STOP WASTING 40% OF YOUR SQUAT CAPACITY. The mechanical hinge flaw most lifters ignore.",
-            archetype="Hook + Big Stat Highlight",
-            confidence_score=96.0
-        )
-        an2 = ReferenceAnalysis(
-            workspace_id="ws_default",
-            brand_id=brand_id,
-            reference_asset_id=ref2.id,
-            palette=["#FFFFFF", "#0F172A", "#94A3B8", "#E2E8F0"],
-            ocr_text="PRECISION SEAMS. ZERO FRICTION. BUILT FOR ULTRA-MARATHONS.",
-            archetype="Minimalist Editorial",
-            confidence_score=92.0
-        )
-        db.add_all([an1, an2])
-        db.commit()
-        refs = [ref1, ref2]
-
     return ApiResponse(data=[_serialize_reference(r) for r in refs])
 
 @router.post("/simulate-upload", response_model=ApiResponse[dict])

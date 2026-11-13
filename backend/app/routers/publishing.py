@@ -14,53 +14,7 @@ router = APIRouter(prefix="/api/v1/publishing", tags=["Publishing Queue"])
 publishing_paused = False
 
 def ensure_seeded_queue(db: Session) -> List[PublishingQueueItem]:
-    items = db.query(PublishingQueueItem).order_by(PublishingQueueItem.scheduled_time.asc()).all()
-    if not items:
-        seeds = [
-            PublishingQueueItem(
-                id="pub_1",
-                workspace_id="ws_default",
-                creative_id="crt_1",
-                post_title="4-Step Pre-Run Mobility Routine",
-                format_label="Carousel (5 slides)",
-                platform="Instagram",
-                target_account="@pulsefit.athletics",
-                scheduled_time=datetime(2026, 11, 10, 15, 0),
-                status="Queued",
-                approval_status="Approved by Lead",
-                idempotency_key=f"idem_{uuid.uuid4().hex[:12]}"
-            ),
-            PublishingQueueItem(
-                id="pub_2",
-                workspace_id="ws_default",
-                creative_id="crt_2",
-                post_title="AeroCore Fabric Deep Dive",
-                format_label="Carousel (4 slides)",
-                platform="LinkedIn",
-                target_account="PulseFit Performance Tech",
-                scheduled_time=datetime(2026, 11, 14, 10, 30),
-                status="Draft / On Hold",
-                approval_status="Needs Content Signoff",
-                idempotency_key=f"idem_{uuid.uuid4().hex[:12]}"
-            ),
-            PublishingQueueItem(
-                id="pub_3",
-                workspace_id="ws_default",
-                creative_id="crt_3",
-                post_title="Quote: Discipline Over Mood",
-                format_label="Static Post",
-                platform="Instagram",
-                target_account="@pulsefit.athletics",
-                scheduled_time=datetime(2026, 11, 7, 12, 0),
-                status="Published",
-                approval_status="Completed",
-                idempotency_key=f"idem_{uuid.uuid4().hex[:12]}"
-            )
-        ]
-        db.add_all(seeds)
-        db.commit()
-        items = db.query(PublishingQueueItem).order_by(PublishingQueueItem.scheduled_time.asc()).all()
-    return items
+    return db.query(PublishingQueueItem).order_by(PublishingQueueItem.scheduled_time.asc()).all()
 
 def _serialize_queue_item(q: PublishingQueueItem) -> dict:
     return {

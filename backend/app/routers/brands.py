@@ -14,63 +14,37 @@ def seed_default_brands(db: Session, workspace_id: str) -> List[Brand]:
     b1 = Brand(
         id="brand_1",
         workspace_id=workspace_id,
-        name="PulseFit Athletics",
-        slug="pulsefit",
-        industry="Fitness & Activewear",
-        tagline="Engineering Human Movement & Precision Performance",
-        description="A modern, science-backed athletic wear brand focused on minimalist technical gear for high-output athletes and fitness enthusiasts.",
+        name="My Brand",
+        slug="my-brand",
+        industry="Technology & Business",
+        tagline="Empowering Growth Through Authentic Content",
+        description="Our official company profile for automated social media asset generation.",
         brand_profile={
             "primaryColor": "#0F172A",
             "accentColor": "#3B82F6",
             "secondaryColor": "#F8FAFC",
             "fontCategory": "Modern Geometric Sans",
-            "activeDNAVersion": "v1.4",
+            "activeDNAVersion": "v1.0",
             "audience": {
-                "demographics": "Ages 22–38, urban & suburban professionals, daily athletes",
-                "painPoints": "Low-quality gym wear that wears out, overhyped fitness marketing, lack of breathable fabric"
+                "demographics": "Digital-first creators, founders, and marketing teams",
+                "painPoints": "Slow content production and inconsistent design branding"
             },
             "voice": {
-                "tone": ["Empowering", "Direct", "Science-backed", "Unpretentious"],
-                "approvedWords": ["Precision", "Kinetic", "Relentless", "Endurance", "Focus"],
-                "prohibitedWords": ["Miracle", "Secret hack", "Skinny", "Cheap", "Guaranteed gains"]
+                "tone": ["Clear", "Direct", "Authoritative", "Inspiring"],
+                "approvedWords": ["Precision", "Strategy", "Execution", "Impact", "Growth"],
+                "prohibitedWords": ["Cheap", "Guaranteed", "Secret hack", "Effortless"]
             },
             "restrictions": [
-                "Never make unverified medical recovery claims.",
-                "Always attribute athlete imagery to verified PulseFit team athletes.",
-                "Maintain at least 15% clear margin space around the primary wordmark."
+                "Always adhere to official brand typography and high-contrast color hierarchy.",
+                "Ensure maximum readability across mobile screens."
             ],
-            "products": [
-                {"id": "prod_1", "name": "AeroCore Seamless Leggings", "category": "Apparel", "usp": "4-way targeted compression with moisture-wicking weave"},
-                {"id": "prod_2", "name": "HydraVent Half-Zip", "category": "Outerwear", "usp": "Ultralight thermo-regulating technical fabric"},
-                {"id": "prod_3", "name": "Apex Grip Lifting Strap", "category": "Accessories", "usp": "Silicone micro-embossed heavy duty support"}
-            ]
+            "products": []
         }
     )
-    b2 = Brand(
-        id="brand_2",
-        workspace_id=workspace_id,
-        name="Nordic Roast Co.",
-        slug="nordic-roast",
-        industry="Specialty Coffee & Lifestyle",
-        tagline="Light-Roast Single Origins with Clean Traceability",
-        description="Ethically sourced Scandinavian light roast coffee beans roasted in small batches with full origin transparency.",
-        brand_profile={
-            "primaryColor": "#262626",
-            "accentColor": "#D97706",
-            "secondaryColor": "#F5F5F4",
-            "fontCategory": "Neo-Grotesque Clean Sans",
-            "activeDNAVersion": "v1.1",
-            "audience": {"demographics": "Specialty coffee enthusiasts, home brewers", "painPoints": "Over-roasted bitter supermarket beans"},
-            "voice": {"tone": ["Warm", "Transparent", "Artisanal"], "approvedWords": ["Single-origin", "Traceable", "Floral", "Clean"], "prohibitedWords": ["Instant", "Cheap"]},
-            "restrictions": ["Verify farm lot numbers before publication."],
-            "products": [{"id": "prod_n1", "name": "Ethiopia Yirgacheffe Washed", "category": "Whole Bean", "usp": "Bright jasmine & bergamot notes"}]
-        }
-    )
-    db.add_all([b1, b2])
+    db.add(b1)
     db.commit()
     db.refresh(b1)
-    db.refresh(b2)
-    return [b1, b2]
+    return [b1]
 
 def _serialize_brand(b: Brand) -> dict:
     prof = b.brand_profile or {}

@@ -13,8 +13,8 @@ def _ensure_default_workspace(db: Session) -> Workspace:
     ws = db.query(Workspace).first()
     if not ws:
         ws = Workspace(
-            name="Acme Growth Labs",
-            slug="acme-growth-labs",
+            name="My Workspace",
+            slug="my-workspace",
             tier="Pro Enterprise",
             owner_id="user_admin"
         )
@@ -24,9 +24,7 @@ def _ensure_default_workspace(db: Session) -> Workspace:
 
     if not ws.members:
         seed_members = [
-            WorkspaceMember(workspace_id=ws.id, user_id="user_admin", name="Aditya (You)", email="aditya@example.com", role="Owner", status="Active"),
-            WorkspaceMember(workspace_id=ws.id, user_id="user_sarah", name="Sarah Chen", email="sarah@growthlabs.io", role="Editor", status="Active"),
-            WorkspaceMember(workspace_id=ws.id, user_id="user_marcus", name="Marcus Vance", email="marcus@growthlabs.io", role="Reviewer", status="Active"),
+            WorkspaceMember(workspace_id=ws.id, user_id="user_admin", name="Workspace Owner", email="admin@xyz.app", role="Owner", status="Active"),
         ]
         db.add_all(seed_members)
         db.commit()

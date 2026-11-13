@@ -15,52 +15,52 @@ def _seed_social_accounts(db: Session) -> List[SocialAccount]:
             workspace_id="ws_default",
             brand_id="brand_1",
             platform="Instagram Business",
-            account_name="@pulsefit.athletics",
-            status="Connected",
-            health="Optimal",
-            token_expires_in="58 days",
-            followers="48.2K",
+            account_name="Not Connected",
+            status="Disconnected",
+            health="Ready to Connect",
+            token_expires_in="N/A",
+            followers="0",
             avatar="📸",
-            scopes=["instagram_basic", "instagram_content_publish", "instagram_manage_insights"]
+            scopes=["instagram_basic", "instagram_content_publish"]
         ),
         SocialAccount(
             id="soc_2",
             workspace_id="ws_default",
             brand_id="brand_1",
             platform="LinkedIn Company",
-            account_name="PulseFit Performance Tech",
-            status="Connected",
-            health="Optimal",
-            token_expires_in="84 days",
-            followers="14.5K",
+            account_name="Not Connected",
+            status="Disconnected",
+            health="Ready to Connect",
+            token_expires_in="N/A",
+            followers="0",
             avatar="💼",
-            scopes=["w_member_social", "r_organization_social", "rw_organization_admin"]
+            scopes=["w_member_social", "r_organization_social"]
         ),
         SocialAccount(
             id="soc_3",
             workspace_id="ws_default",
             brand_id="brand_1",
             platform="X (Twitter) v2",
-            account_name="@PulseFitGear",
-            status="Connected",
-            health="Optimal",
-            token_expires_in="120 days",
-            followers="9.8K",
+            account_name="Not Connected",
+            status="Disconnected",
+            health="Ready to Connect",
+            token_expires_in="N/A",
+            followers="0",
             avatar="🐦",
-            scopes=["tweet.read", "tweet.write", "users.read"]
+            scopes=["tweet.read", "tweet.write"]
         ),
         SocialAccount(
             id="soc_4",
             workspace_id="ws_default",
             brand_id="brand_1",
             platform="Facebook Page",
-            account_name="PulseFit Official",
-            status="Requires Reauth",
-            health="Action Needed",
-            token_expires_in="Expired",
-            followers="22.1K",
+            account_name="Not Connected",
+            status="Disconnected",
+            health="Ready to Connect",
+            token_expires_in="N/A",
+            followers="0",
             avatar="📘",
-            scopes=["pages_show_list", "pages_read_engagement", "pages_manage_posts"]
+            scopes=["pages_show_list", "pages_manage_posts"]
         )
     ]
     db.add_all(seeds)

@@ -128,10 +128,6 @@ def get_creatives(brand_id: Optional[str] = None, db: Session = Depends(get_db))
     if brand_id:
         query = query.filter(Creative.brand_id == brand_id)
     creatives = query.order_by(Creative.created_at.desc()).all()
-
-    if not creatives and (not brand_id or brand_id == "brand_1"):
-        creatives = _seed_initial_creatives(db, brand_id or "brand_1")
-
     return ApiResponse(data=[_serialize_creative(c) for c in creatives])
 
 @router.get("/{creative_id}", response_model=ApiResponse[dict])
