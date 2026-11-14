@@ -93,3 +93,4 @@ class StorageService:
             "supabase_url": supabase_url,
             "bytes_len": len(image_bytes)
         }
+

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from app.config import settings
 from app.schemas.common import ApiResponse
 from app.services.ai_gateway import AIGateway
 
@@ -39,6 +40,17 @@ def get_providers():
             "latencyAvg": "820 ms",
             "monthlyTokens": "420,000 / 3,000,000",
             "monthlyCost": "$4.10"
+        },
+        {
+            "id": "prov_cloudflare",
+            "name": "Cloudflare Workers AI",
+            "models": ["@cf/black-forest-labs/flux-1-schnell", "@cf/stabilityai/stable-diffusion-xl-base-1.0"],
+            "capabilities": ["AI Image Synthesis", "Edge Inference"],
+            "status": "Connected" if getattr(settings, "CLOUDFLARE_API_TOKEN", None) else "Disconnected",
+            "apiKeyMasked": f"cfat_{'•'*16}{settings.CLOUDFLARE_API_TOKEN[-4:]}" if getattr(settings, "CLOUDFLARE_API_TOKEN", None) else "Unconfigured",
+            "latencyAvg": "980 ms",
+            "monthlyTokens": "120,000 / 1,000,000",
+            "monthlyCost": "$0.00"
         }
     ]
     return ApiResponse(data=providers)

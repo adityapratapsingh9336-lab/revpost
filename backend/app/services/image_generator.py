@@ -53,7 +53,59 @@ class ImageGeneratorService:
             generation_id, provider, width, height, seed
         )
 
-        # 1. Attempt OpenAI DALL-E 3 if key is configured and requested
+        # 1. Attempt Cloudflare Workers AI if token & account ID are configured
+        cf_token = getattr(settings, "CLOUDFLARE_API_TOKEN", None) or os.getenv("CLOUDFLARE_API_TOKEN")
+        cf_account_id = getattr(settings, "CLOUDFLARE_ACCOUNT_ID", None) or os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        if cf_token and cf_account_id:
+            cf_models = [
+                "@cf/black-forest-labs/flux-1-schnell",
+                "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+                "@cf/bytedance/stable-diffusion-xl-lightning"
+            ]
+            for cf_m in cf_models:
+                try:
+                    cf_url = f"https://api.cloudflare.com/client/v4/accounts/{cf_account_id}/ai/run/{cf_m}"
+                    cf_headers = {
+                        "Authorization": f"Bearer {cf_token}",
+                        "Content-Type": "application/json"
+                    }
+                    cf_payload = {
+                        "prompt": full_prompt[:500],
+                        "num_steps": 20
+                    }
+                    res = requests.post(cf_url, headers=cf_headers, json=cf_payload, timeout=25)
+                    if res.status_code == 200 and len(res.content) > 1000:
+                        image_bytes = res.content
+                        img = Image.open(io.BytesIO(image_bytes))
+                        img.verify()
+
+                        img = Image.open(io.BytesIO(image_bytes))
+                        if img.size != (width, height):
+                            img = img.resize((width, height), Image.Resampling.LANCZOS)
+                            buf = io.BytesIO()
+                            img.save(buf, format="JPEG", quality=92)
+                            image_bytes = buf.getvalue()
+
+                        latency_ms = int((time.time() - start_time) * 1000)
+                        meta = {
+                            "generation_id": generation_id,
+                            "provider": "cloudflare-workers-ai",
+                            "model": cf_m,
+                            "prompt": full_prompt,
+                            "seed": seed,
+                            "width": width,
+                            "height": height,
+                            "latency_ms": latency_ms,
+                            "status": "completed"
+                        }
+                        logger.info("[ImageGenerator] Cloudflare Workers AI (%s) generated image in %dms", cf_m, latency_ms)
+                        return image_bytes, meta
+                    else:
+                        logger.info("[ImageGenerator] Cloudflare model %s returned status %d. Trying next engine.", cf_m, res.status_code)
+                except Exception as cf_err:
+                    logger.info("[ImageGenerator] Cloudflare Workers AI call notice: %s", cf_err)
+
+        # 2. Attempt OpenAI DALL-E 3 if key is configured and requested
         openai_key = settings.OPENAI_API_KEY
         if provider == "dall-e-3" and openai_key:
             try:
