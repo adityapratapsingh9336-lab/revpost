@@ -68,12 +68,23 @@ def generate_creative(payload: CreativeGenerateRequest, db: Session = Depends(ge
 
     # Apply live AI generated slide copy if available
     slides_override = copy_result.get("slides_override")
-    if isinstance(slides_override, list) and len(slides_override) == len(blueprint.slides):
+    if isinstance(slides_override, list):
         for idx, s_data in enumerate(slides_override):
-            if isinstance(s_data, dict):
-                blueprint.slides[idx].badge = str(s_data.get("badge", blueprint.slides[idx].badge))[:24]
-                blueprint.slides[idx].headline = str(s_data.get("headline", blueprint.slides[idx].headline))[:120]
-                blueprint.slides[idx].subhead = str(s_data.get("subhead", blueprint.slides[idx].subhead))[:240]
+            if idx < len(blueprint.slides) and isinstance(s_data, dict):
+                badge_val = str(s_data.get("badge", blueprint.slides[idx].badge))[:24]
+                hl_val = str(s_data.get("headline", blueprint.slides[idx].headline))[:120]
+                sub_val = str(s_data.get("subhead", blueprint.slides[idx].subhead))[:240]
+                blueprint.slides[idx].badge = badge_val
+                blueprint.slides[idx].headline = hl_val
+                blueprint.slides[idx].subhead = sub_val
+                # Also update inner elements for PNG image rendering
+                for el in blueprint.slides[idx].elements:
+                    if el.type == "badge":
+                        el.content = badge_val
+                    elif el.type == "headline":
+                        el.content = hl_val
+                    elif el.type == "subhead":
+                        el.content = sub_val
 
     # Step 3: Persist as draft creative record in the database
     new_creative = Creative(

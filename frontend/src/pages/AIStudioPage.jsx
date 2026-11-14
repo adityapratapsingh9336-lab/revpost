@@ -59,7 +59,30 @@ export const AIStudioPage = () => {
   const [useReferenceBackdrop, setUseReferenceBackdrop] = useState(true);
 
   // Active creative being displayed/edited
-  const [creative, setCreative] = useState(mockCreatives[0]);
+  const [creative, setCreative] = useState({
+    id: 'draft_initial',
+    title: 'Ready to Generate',
+    brandId: 'brand_1',
+    platform: 'Instagram',
+    format: '1080x1350 (Portrait Carousel)',
+    type: 'carousel',
+    slidesCount: 5,
+    status: 'Ready',
+    caption: 'Click "Generate Creative Blueprint" on the left to synthesize high-impact copy, hooks, and hashtags for your post.',
+    hashtags: ['#ContentStrategy', '#SocialGrowth', '#AIStudio'],
+    archetype: 'High-Contrast Technical Minimalist',
+    slides: [
+      {
+        id: 1,
+        badge: 'READY TO GENERATE',
+        headline: 'ENTER YOUR BRIEF & CLICK GENERATE',
+        subhead: 'The AI will synthesize custom slide copy, structured breakdown points, and platform captions tailored to your topic.',
+        type: 'hook'
+      }
+    ]
+  });
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [generationSuccessMsg, setGenerationSuccessMsg] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -155,7 +178,7 @@ export const AIStudioPage = () => {
           format: serverResult.format,
           type: serverResult.content_type,
           slidesCount: serverResult.slides_count,
-          status: 'Draft',
+          status: 'Generated',
           caption: serverResult.caption,
           hashtags: serverResult.hashtags,
           archetype,
@@ -167,35 +190,42 @@ export const AIStudioPage = () => {
             type: s.type,
           })),
         });
+        setHasGenerated(true);
+        setGenerationSuccessMsg(`✓ Post created! ${serverResult.blueprint.slides.length} slides generated.`);
+        setTimeout(() => setGenerationSuccessMsg(null), 5000);
       } else {
-        // Fallback local synthesis
+        // Fallback local synthesis with real prompt integration
+        const cleanPrompt = topicBrief.trim().replace(/\.+$/, '');
         setCreative({
           id: `crt_${Date.now()}`,
-          title: topicBrief.substring(0, 50) + '...',
+          title: cleanPrompt.substring(0, 50),
           brandId: activeBrand.id,
           platform,
           format,
           type: contentType,
           slidesCount: slideCount,
-          status: 'Draft',
-          caption: `Here is the breakdown athletes need before their next session:\n\n${topicBrief}\n\nKey takeaways to save to your training archives.\n\n#${activeBrand.slug} #AthleticPerformance #TrainingScience`,
+          status: 'Generated',
+          caption: `A deep-dive breakdown into ${cleanPrompt}:\n\nKey principles to execute:\n1. Audit mechanical bottlenecks before scaling.\n2. Maintain strict baseline controls across the loop.\n3. Eliminate compensatory fatigue.\n\nSave this guide to reference before your next session.\n\n#${activeBrand.slug} #ContentDesign #Performance`,
           archetype,
           slides: Array.from({ length: slideCount }, (_, idx) => ({
             id: idx + 1,
-            badge: idx === 0 ? 'HOOK [01]' : idx === slideCount - 1 ? 'ACTION' : `POINT [0${idx + 1}]`,
+            badge: idx === 0 ? 'HOOK [01]' : idx === slideCount - 1 ? 'ACTION' : `STEP [0${idx + 1}]`,
             headline: idx === 0
-              ? 'UNLOCK FULL STRIDE DEPTH: 4 KEY MECHANICS'
+              ? `THE BLUEPRINT: ${cleanPrompt.slice(0, 48).toUpperCase()}`
               : idx === slideCount - 1
-              ? 'GEAR UP FOR YOUR NEXT BREAKTHROUGH'
-              : `PHASE 0${idx}: OPTIMIZING MOVEMENT LOAD`,
+              ? `DEPLOY THIS PROTOCOL WITH ${activeBrand.name.toUpperCase()}`
+              : `PHASE 0${idx}: OPTIMIZING EXECUTION LEVERAGE`,
             subhead: idx === 0
-              ? 'Why mechanical resistance in your hip hinge limits aerobic cadence.'
+              ? `Why conventional approaches fail and how to systematically unlock results.`
               : idx === slideCount - 1
-              ? 'Discover precision apparel engineered for zero-distraction workouts.'
-              : 'Maintain neutral lumbar curvature and drive through the midfoot.',
+              ? `Bookmark this breakdown and explore our bio link for the complete framework.`
+              : `Maintain neutral baseline controls and eliminate secondary resistance points.`,
             type: idx === 0 ? 'hook' : idx === slideCount - 1 ? 'cta' : 'content',
           })),
         });
+        setHasGenerated(true);
+        setGenerationSuccessMsg(`✓ Post created! ${slideCount} slides generated.`);
+        setTimeout(() => setGenerationSuccessMsg(null), 5000);
       }
       setActiveSlideIndex(0);
     } catch (err) {
@@ -610,18 +640,6 @@ export const AIStudioPage = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                {selectedReference?.thumbnailUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setUseReferenceBackdrop(!useReferenceBackdrop)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
-                    title="Toggle visual reference image backdrop"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>{useReferenceBackdrop ? 'Image Backdrop: On' : 'Image Backdrop: Off'}</span>
-                  </button>
-                )}
-
                 <Button
                   size="sm"
                   variant="secondary"
@@ -659,49 +677,87 @@ export const AIStudioPage = () => {
               </div>
             </div>
 
-            {/* The Actual Rendered Slide Canvas */}
+            {/* Generation Success Banner */}
+            {generationSuccessMsg && (
+              <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-emerald-800 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{generationSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* The Actual Rendered Slide Canvas — Pure Design Blueprint (No wallpaper background) */}
             <div className="py-6 flex justify-center">
               <div
-                className="w-full max-w-sm aspect-[4/5] text-white rounded-xl p-8 flex flex-col justify-between shadow-dropdown border border-slate-800 relative select-none overflow-hidden"
+                className="w-full max-w-sm aspect-[4/5] text-white rounded-2xl p-8 flex flex-col justify-between shadow-2xl border border-white/10 relative select-none overflow-hidden"
                 style={{
                   backgroundColor: selectedReference?.extractedPalette?.[0] || '#0F172A'
                 }}
               >
-                {/* Visual Backdrop: Reference Image if available and toggled ON */}
-                {useReferenceBackdrop && selectedReference?.thumbnailUrl && (
-                  <>
-                    <div
-                      className="absolute inset-0 bg-cover bg-center transition-all duration-300"
-                      style={{ backgroundImage: `url(${selectedReference.thumbnailUrl})` }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/92 via-slate-950/80 to-slate-950/65 backdrop-blur-[1px]" />
-                  </>
-                )}
+                {/* Subtle Geometric Design Accents based on Reference Palette */}
+                <div
+                  className="absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl opacity-20 pointer-events-none"
+                  style={{ backgroundColor: selectedReference?.extractedPalette?.[2] || '#3B82F6' }}
+                />
+                <div
+                  className="absolute -bottom-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-15 pointer-events-none"
+                  style={{ backgroundColor: selectedReference?.extractedPalette?.[1] || '#64748B' }}
+                />
 
                 {/* Header */}
                 <div className="flex items-center justify-between z-10">
-                  <span className="text-[10px] tracking-wider font-mono uppercase bg-white/10 px-2 py-0.5 rounded text-slate-200 backdrop-blur-sm border border-white/10">
-                    {creative.slides?.[activeSlideIndex]?.badge || 'PREVIEW'}
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-300 bg-black/30 px-2 py-0.5 rounded backdrop-blur-sm">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[10px] tracking-wider font-mono font-bold uppercase px-2.5 py-1 rounded-md border"
+                      style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                        borderColor: 'rgba(255, 255, 255, 0.15)',
+                        color: selectedReference?.extractedPalette?.[2] || '#60A5FA'
+                      }}
+                    >
+                      {creative.slides?.[activeSlideIndex]?.badge || 'SLIDE [01]'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-300 bg-white/5 border border-white/10 px-2.5 py-1 rounded-md">
                     [0{activeSlideIndex + 1}/0{creative.slides?.length || 1}]
                   </span>
                 </div>
 
-                {/* Content */}
+                {/* Main Content Area */}
                 <div className="space-y-4 my-auto z-10">
-                  <h3 className="text-xl font-bold tracking-tight text-white leading-tight drop-shadow-sm">
+                  <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight">
                     {creative.slides?.[activeSlideIndex]?.headline}
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-light drop-shadow-sm">
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
                     {creative.slides?.[activeSlideIndex]?.subhead}
                   </p>
+
+                  {/* Archetype Visual Feature Box */}
+                  {creative.slides?.[activeSlideIndex]?.type === 'cta' ? (
+                    <div
+                      className="mt-4 py-2 px-4 rounded-lg font-bold text-xs text-center text-white shadow-md cursor-pointer transition-transform hover:scale-[1.02]"
+                      style={{ backgroundColor: selectedReference?.extractedPalette?.[2] || '#3B82F6' }}
+                    >
+                      VISIT LINK IN BIO →
+                    </div>
+                  ) : (
+                    <div className="mt-3 p-3 rounded-lg bg-white/5 border border-white/10 flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                        {activeSlideIndex === 0 ? 'CORE INSIGHT' : 'ACTIONABLE PROTOCOL'}
+                      </span>
+                      <span
+                        className="text-[10px] font-mono font-bold"
+                        style={{ color: selectedReference?.extractedPalette?.[2] || '#60A5FA' }}
+                      >
+                        {activeSlideIndex === 0 ? '⚡ HIGH VALUE' : `KEY POINT 0${activeSlideIndex}`}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer */}
-                <div className="pt-4 border-t border-white/15 flex items-center justify-between z-10 text-[10px] text-slate-300">
-                  <span className="font-bold tracking-wider">{activeBrand.name.toUpperCase()}</span>
-                  <span className="font-mono bg-white/10 px-2 py-0.5 rounded">
+                <div className="pt-4 border-t border-white/10 flex items-center justify-between z-10 text-[10px] text-slate-400">
+                  <span className="font-bold tracking-wider text-slate-300">{activeBrand.name.toUpperCase()}</span>
+                  <span className="font-mono text-slate-400">
                     {activeSlideIndex === (creative.slides?.length || 1) - 1 ? 'VISIT BIO' : 'SWIPE NEXT →'}
                   </span>
                 </div>
