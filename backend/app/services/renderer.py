@@ -50,9 +50,41 @@ class ControlledBlueprintRenderer:
         height: int = 1350,
         bg_hex: str = "#0F172A",
         accent_hex: str = "#3B82F6",
+        bg_image_bytes: Optional[bytes] = None,
     ) -> bytes:
-        # 1. Initialize crisp matte canvas
-        img = Image.new("RGB", (width, height), color=bg_hex)
+        # 1. Initialize Canvas: either with genuine AI image foundation or clean matte background
+        if bg_image_bytes:
+            try:
+                raw_bg = Image.open(io.BytesIO(bg_image_bytes)).convert("RGB")
+                # Center crop to target aspect ratio
+                rw, rh = raw_bg.size
+                target_ratio = width / height
+                cur_ratio = rw / rh
+                if cur_ratio > target_ratio:
+                    new_w = int(rh * target_ratio)
+                    offset_x = (rw - new_w) // 2
+                    cropped = raw_bg.crop((offset_x, 0, offset_x + new_w, rh))
+                else:
+                    new_h = int(rw / target_ratio)
+                    offset_y = (rh - new_h) // 2
+                    cropped = raw_bg.crop((0, offset_y, rw, offset_y + new_h))
+
+                base_img = cropped.resize((width, height), Image.Resampling.LANCZOS).convert("RGBA")
+
+                # Controlled contrast gradient overlay for maximum typographic legibility
+                overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+                draw_ov = ImageDraw.Draw(overlay)
+                for y in range(height):
+                    # Subtle gradient from 45% black at top to 85% deep slate at bottom
+                    alpha = int(90 + (y / height) * 130)
+                    draw_ov.line([(0, y), (width, y)], fill=(15, 23, 42, alpha))
+
+                img = Image.alpha_composite(base_img, overlay).convert("RGB")
+            except Exception:
+                img = Image.new("RGB", (width, height), color=bg_hex)
+        else:
+            img = Image.new("RGB", (width, height), color=bg_hex)
+
         draw = ImageDraw.Draw(img)
 
         margin = 80  # Strict safe margin per Visual DNA rules
@@ -166,7 +198,7 @@ class ControlledBlueprintRenderer:
         return buf.getvalue()
 
     @classmethod
-    def export_blueprint_package(cls, blueprint: Dict[str, Any], brand_name: str = "PULSEFIT ATHLETICS") -> tuple[bytes, str, str]:
+    def export_blueprint_package(cls, blueprint: Dict[str, Any], brand_name: str = "PULSEFIT ATHLETICS", bg_image_bytes: Optional[bytes] = None) -> tuple[bytes, str, str]:
         """
         Exports a blueprint into either a single PNG (1 slide) or a ZIP archive of PNGs (carousel).
         Returns (file_bytes, media_type, filename).
@@ -181,7 +213,7 @@ class ControlledBlueprintRenderer:
 
         if total == 1:
             png_bytes = cls.render_slide_to_png_bytes(
-                slides[0], 0, 1, brand_name=brand_name, width=width, height=height
+                slides[0], 0, 1, brand_name=brand_name, width=width, height=height, bg_image_bytes=bg_image_bytes
             )
             return png_bytes, "image/png", "xyz_creative_post.png"
 
@@ -190,7 +222,7 @@ class ControlledBlueprintRenderer:
         with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for idx, slide in enumerate(slides):
                 png_bytes = cls.render_slide_to_png_bytes(
-                    slide, idx, total, brand_name=brand_name, width=width, height=height
+                    slide, idx, total, brand_name=brand_name, width=width, height=height, bg_image_bytes=bg_image_bytes
                 )
                 zf.writestr(f"slide_{idx + 1:02d}.png", png_bytes)
 

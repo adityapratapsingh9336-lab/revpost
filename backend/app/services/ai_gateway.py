@@ -95,6 +95,48 @@ class AIGateway:
             return "gemini"
 
     @classmethod
+    def synthesize_visual_prompt(cls, topic_brief: str, brand_name: str = "", archetype: str = "") -> str:
+        """
+        Synthesizes a rich, photorealistic visual prompt specifically tailored
+        for AI diffusion models (Flux.1 / SDXL / DALL-E).
+        """
+        clean = topic_brief.strip().rstrip(".")
+        lower = clean.lower()
+
+        if any(w in lower for w in ["beach", "ocean", "coastal", "villa", "resort"]):
+            return (
+                "Architectural photograph of a luxury modern beachfront villa with an infinity pool "
+                "overlooking the calm azure ocean at golden hour sunset, warm ambient architectural lighting, "
+                "minimalist limestone and teak materials, 8k resolution, Architectural Digest cover photography"
+            )
+        elif any(w in lower for w in ["penthouse", "skyline", "loft", "city", "high-rise"]):
+            return (
+                "Interior architectural photograph of an ultra-luxury modern high-rise penthouse loft "
+                "overlooking a glowing panoramic metropolis skyline at twilight, double-height ceilings, "
+                "designer minimalist Italian furniture, expansive glass curtain walls, 8k resolution"
+            )
+        elif any(w in lower for w in ["real estate", "property", "house", "mansion", "home", "listing", "interior"]):
+            return (
+                f"High-end architectural photography of a stunning contemporary luxury property inspired by '{clean}', "
+                "meticulously manicured landscaping, warm evening exterior uplighting, sleek geometric glass architecture, 8k UHD"
+            )
+        elif any(w in lower for w in ["run", "fitness", "athlete", "workout", "gym", "movement", "stride", "hinge"]):
+            return (
+                "Dynamic athletic action photography of an elite athlete in high-performance technical apparel, "
+                "sprinting with perfect biomechanical form at sunrise, cinematic atmospheric mist, sharp focus, 8k commercial sports shoot"
+            )
+        elif any(w in lower for w in ["tech", "ai", "cloud", "code", "software", "saas", "latency"]):
+            return (
+                "Sleek futuristic minimalist technology laboratory with glass workstations, subtle glowing fiber optics, "
+                "clean architectural composition, volumetric lighting, cinematic depth of field, 8k high resolution"
+            )
+        else:
+            return (
+                f"Cinematic editorial commercial photography representing '{clean}', "
+                "dramatic professional studio lighting, sophisticated color grading, premium minimalist aesthetic, 8k resolution"
+            )
+
+    @classmethod
     def generate_copy_and_hooks(
         cls,
         topic_brief: str,
@@ -103,11 +145,12 @@ class AIGateway:
         platform: str,
         objective: str,
         slides_count: int = 5,
-        knowledge_context: Optional[Dict[str, Any]] = None
+        knowledge_context: Optional[Dict[str, Any]] = None,
+        archetype: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Synthesizes platform caption, hook headline, hashtags, and optional slide copy.
-        Calls live OpenAI or Google Gemini APIs when configured, incorporating brand knowledge context.
+        Synthesizes platform caption, hook headline, hashtags, visual concept,
+        and a dedicated diffusion visual prompt for genuine AI image synthesis.
         """
         start_ms = time.time()
         openai_key = cls.get_active_key("openai")
@@ -120,10 +163,10 @@ class AIGateway:
             if products and isinstance(products, list):
                 prod_names = ", ".join([f"{p.get('name', '')} ({p.get('usp', '')})" for p in products[:3] if isinstance(p, dict)])
                 if prod_names:
-                    knowledge_str += f"\nBrand Products to subtly incorporate or align with: {prod_names}"
+                    knowledge_str += f"\nBrand Products to subtly incorporate: {prod_names}"
             audience = knowledge_context.get("audience", {})
             if isinstance(audience, dict) and audience.get("painPoints"):
-                knowledge_str += f"\nTarget Audience Pain Points to resolve: {audience.get('painPoints')}"
+                knowledge_str += f"\nTarget Audience Pain Points: {audience.get('painPoints')}"
             restrictions = knowledge_context.get("restrictions", [])
             if restrictions and isinstance(restrictions, list):
                 knowledge_str += f"\nNegative Constraints (DO NOT VIOLATE): {'; '.join([str(r) for r in restrictions[:3]])}"
@@ -137,10 +180,14 @@ class AIGateway:
                 from openai import OpenAI
                 client = OpenAI(api_key=openai_key)
                 prompt = (
-                    f"Create a concise, high-impact social media post blueprint for {brand_name} on {platform}.\n"
+                    f"Create a structured social media post blueprint for {brand_name} on {platform}.\n"
                     f"Topic: {topic_brief}\nObjective: {objective}\nTone: {brand_voice}{knowledge_str}\n"
-                    f"Return strictly valid JSON with keys: title (max 55 chars), caption, hashtags (array of 4 strings), "
-                    f"slides (array of {slides_count} objects each with badge, headline, subhead)."
+                    f"Return strictly valid JSON with keys: "
+                    f"\"title\" (max 55 chars), \"headline\", \"supporting_text\", \"caption\", "
+                    f"\"hashtags\" (array of 4 strings), \"visual_concept\" (1 sentence description of image scene), "
+                    f"\"visual_prompt\" (highly detailed photorealistic description for diffusion image generation, 8k, lighting, scene), "
+                    f"\"brand_styling\" (string with visual guidelines), "
+                    f"\"slides\" (array of {slides_count} objects each with badge, headline, subhead)."
                 )
                 resp = client.chat.completions.create(
                     model="gpt-4o-mini",
@@ -150,20 +197,26 @@ class AIGateway:
                 )
                 parsed = json.loads(resp.choices[0].message.content)
                 latency = int((time.time() - start_ms) * 1000)
+                v_prompt = parsed.get("visual_prompt") or cls.synthesize_visual_prompt(topic_brief, brand_name, archetype or "")
                 return {
                     "title": parsed.get("title", topic_brief[:55]),
+                    "headline": parsed.get("headline", parsed.get("title", topic_brief[:55])),
+                    "supporting_text": parsed.get("supporting_text", ""),
                     "caption": parsed.get("caption", ""),
                     "hashtags": parsed.get("hashtags", []),
+                    "visual_concept": parsed.get("visual_concept", f"High-contrast visual composition for {topic_brief}"),
+                    "visual_prompt": v_prompt,
+                    "brand_styling": parsed.get("brand_styling", f"{archetype or 'Modern Minimalist'} with bold contrast"),
                     "slides_override": parsed.get("slides"),
                     "tokens_used": resp.usage.total_tokens if resp.usage else 950,
                     "latency_ms": latency,
                     "provider": "openai (live)"
                 }
             except Exception as e:
-                print(f"[AI Gateway Warning] OpenAI live call failed, falling back gracefully: {e}")
+                print(f"[AI Gateway Warning] OpenAI live call failed: {e}")
 
-        # Attempt Live Gemini Inference if key is configured
-        if gemini_key:
+        # Attempt Live Gemini Inference if key is configured and valid format
+        if gemini_key and gemini_key.startswith("AIzaSy"):
             for gemini_model_name in ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"]:
                 try:
                     import google.generativeai as genai
@@ -172,16 +225,24 @@ class AIGateway:
                     prompt = (
                         f"Return ONLY raw JSON (no markdown fences) for a social media post for {brand_name} on {platform}. "
                         f"Topic: {topic_brief}. Objective: {objective}. Tone: {brand_voice}. {knowledge_str} "
-                        f"JSON schema: {{\"title\": string, \"caption\": string, \"hashtags\": [string], \"slides\": [{{\"badge\": string, \"headline\": string, \"subhead\": string}}] ({slides_count} items)}}"
+                        f"JSON schema: {{\"title\": string, \"headline\": string, \"supporting_text\": string, \"caption\": string, "
+                        f"\"hashtags\": [string], \"visual_concept\": string, \"visual_prompt\": string, \"brand_styling\": string, "
+                        f"\"slides\": [{{\"badge\": string, \"headline\": string, \"subhead\": string}}] ({slides_count} items)}}"
                     )
-                    resp = model.generate_content(prompt)
+                    resp = model.generate_content(prompt, request_options={"timeout": 4.0})
                     raw_text = resp.text.strip().removeprefix("```json").removesuffix("```").strip()
                     parsed = json.loads(raw_text)
                     latency = int((time.time() - start_ms) * 1000)
+                    v_prompt = parsed.get("visual_prompt") or cls.synthesize_visual_prompt(topic_brief, brand_name, archetype or "")
                     return {
                         "title": parsed.get("title", topic_brief[:55]),
+                        "headline": parsed.get("headline", parsed.get("title", topic_brief[:55])),
+                        "supporting_text": parsed.get("supporting_text", ""),
                         "caption": parsed.get("caption", ""),
                         "hashtags": parsed.get("hashtags", []),
+                        "visual_concept": parsed.get("visual_concept", f"Visual concept for {topic_brief}"),
+                        "visual_prompt": v_prompt,
+                        "brand_styling": parsed.get("brand_styling", f"{archetype or 'Modern Minimalist'}"),
                         "slides_override": parsed.get("slides"),
                         "tokens_used": 1100,
                         "latency_ms": latency,
@@ -202,10 +263,16 @@ class AIGateway:
         if len(clean_title) > 60:
             clean_title = clean_title[:57] + "..."
 
+        hook_headline = semantic_slides[0].get("headline") if semantic_slides else clean_title.upper()
+        hook_subhead = semantic_slides[0].get("subhead") if semantic_slides else ""
+
+        visual_prompt = cls.synthesize_visual_prompt(topic_brief, brand_name, archetype or "")
+        visual_concept = f"High-impact visual composition focused on {topic_brief[:50]} with cinematic lighting and premium architectural clarity."
+
         caption = (
             f"Here is the deep-dive breakdown into {topic_brief[:70]}...\n\n"
             f"Key principles engineered at {brand_name}:\n"
-            f"1. Diagnose mechanical friction before scaling volume.\n"
+            f"1. Diagnose core friction before scaling volume.\n"
             f"2. Maintain strict baseline controls across execution.\n"
             f"3. Eliminate compensatory fatigue patterns.\n\n"
             f"Save this breakdown to reference before your next session.\n\n"
@@ -221,8 +288,13 @@ class AIGateway:
 
         return {
             "title": clean_title,
+            "headline": hook_headline,
+            "supporting_text": hook_subhead,
             "caption": caption,
             "hashtags": hashtags,
+            "visual_concept": visual_concept,
+            "visual_prompt": visual_prompt,
+            "brand_styling": f"{archetype or 'High-Contrast Technical Minimalist'} with strict margin guidelines",
             "slides_override": semantic_slides,
             "tokens_used": 1420,
             "latency_ms": 780,

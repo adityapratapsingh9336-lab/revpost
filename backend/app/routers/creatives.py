@@ -102,6 +102,8 @@ def _seed_initial_creatives(db: Session, brand_id: str) -> List[Creative]:
 def _serialize_creative(c: Creative) -> dict:
     bp = c.blueprint_json or {}
     slides = bp.get("slides", [])
+    img_url = getattr(c, "image_url", None) or bp.get("image_url")
+    raw_img_url = getattr(c, "raw_image_url", None) or bp.get("raw_image_url")
     return {
         "id": c.id,
         "brand_id": c.brand_id,
@@ -117,6 +119,14 @@ def _serialize_creative(c: Creative) -> dict:
         "hashtags": c.hashtags,
         "archetype": c.design_archetype,
         "design_archetype": c.design_archetype,
+        "image_url": img_url,
+        "imageUrl": img_url,
+        "raw_image_url": raw_img_url,
+        "visual_prompt": getattr(c, "visual_prompt", None),
+        "generation_id": getattr(c, "generation_id", None),
+        "ai_provider": getattr(c, "ai_provider", None),
+        "ai_model": getattr(c, "ai_model", None),
+        "generation_latency_ms": getattr(c, "generation_latency_ms", None),
         "slides": slides,
         "blueprint": bp,
         "created_at": c.created_at.isoformat()

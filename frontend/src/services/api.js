@@ -115,10 +115,24 @@ export const api = {
     });
   },
 
-  // AI Studio Generation
+  // Helper to resolve static storage URLs with API origin
+  getStorageAssetUrl(url) {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+      return url;
+    }
+    return `${API_ORIGIN}${url}`;
+  },
+
+  // AI Studio Generation (Strict Error Propagation per PRD Phase 4)
   async generateCreative(params) {
-    return await safeFetch('/ai/generate', {
+    const res = await fetch(`${BASE_URL}/ai/generate`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-workspace-role': 'owner',
+        'x-user-id': 'user_admin',
+      },
       body: JSON.stringify({
         brand_id: params.brandId || 'brand_1',
         topic_brief: params.topicBrief,
@@ -133,6 +147,13 @@ export const api = {
         reference_id: params.referenceId,
       }),
     });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      const errMsg = errJson?.error?.message || errJson?.detail?.message || errJson?.detail || `AI Generation failed (HTTP ${res.status})`;
+      throw new Error(errMsg);
+    }
+    const json = await res.json();
+    return json.data;
   },
 
   // Creatives & Canvas

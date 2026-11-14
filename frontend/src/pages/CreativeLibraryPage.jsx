@@ -149,8 +149,18 @@ export const CreativeLibraryPage = () => {
                 {/* Visual Preview Header */}
                 <div
                   onClick={() => navigate(`/editor/${item.id}`)}
-                  className="h-36 rounded-lg bg-slate-900 text-white p-4 flex flex-col justify-between cursor-pointer border border-slate-800 relative overflow-hidden mb-3"
+                  className="h-36 rounded-lg bg-slate-900 text-white p-4 flex flex-col justify-between cursor-pointer border border-slate-800 relative overflow-hidden mb-3 group-hover:border-slate-700 transition-colors"
                 >
+                  {(item.imageUrl || item.image_url) && (
+                    <img
+                      src={api.getStorageAssetUrl(item.imageUrl || item.image_url)}
+                      alt={item.title}
+                      className="absolute inset-0 w-full h-full object-cover z-0"
+                    />
+                  )}
+                  {(item.imageUrl || item.image_url) && (
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-slate-950/30 z-0 pointer-events-none" />
+                  )}
                   <div className="flex items-center justify-between z-10">
                     <Badge variant="primary" className="bg-white/10 text-[10px]">
                       {item.platform}

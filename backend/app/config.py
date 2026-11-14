@@ -14,6 +14,10 @@ class Settings:
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY", None)
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY", None)
     STORAGE_LOCAL_DIR: str = os.getenv("STORAGE_LOCAL_DIR", "./storage_uploads")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://opujzcadgaxmcogynykn.supabase.co")
+    SUPABASE_KEY: Optional[str] = os.getenv("SUPABASE_KEY", os.getenv("SUPABASE_SERVICE_ROLE_KEY", None))
+    SUPABASE_STORAGE_BUCKET: str = os.getenv("SUPABASE_STORAGE_BUCKET", "creatives")
+    BASE_URL: Optional[str] = os.getenv("BASE_URL", None)
     ALLOWED_ORIGINS: List[str] = [
         o.strip() for o in os.getenv(
             "ALLOWED_ORIGINS",

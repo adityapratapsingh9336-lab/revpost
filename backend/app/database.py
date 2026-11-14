@@ -101,28 +101,52 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def ensure_sqlite_columns():
-    """Safely adds newly introduced columns in local SQLite dev databases without wiping data."""
-    if not settings.DATABASE_URL.startswith("sqlite"):
-        return
-
-    migrations = [
-        ("workspaces", "slug", "TEXT DEFAULT 'acme-growth-labs'"),
-        ("workspaces", "tier", "TEXT DEFAULT 'Pro Enterprise'"),
-        ("workspace_members", "name", "TEXT DEFAULT 'Team Member'"),
-        ("workspace_members", "email", "TEXT DEFAULT 'member@example.com'"),
-        ("workspace_members", "status", "TEXT DEFAULT 'Active'"),
-        ("social_accounts", "followers", "TEXT DEFAULT '0'"),
-        ("social_accounts", "avatar", "TEXT DEFAULT '🌐'"),
-        ("publishing_queue", "post_title", "TEXT DEFAULT 'Scheduled Creative'"),
-        ("publishing_queue", "format_label", "TEXT DEFAULT 'Carousel'"),
+    """Safely adds newly introduced columns in SQLite and PostgreSQL databases without wiping data."""
+    creative_cols = [
+        ("image_url", "TEXT", "VARCHAR"),
+        ("raw_image_url", "TEXT", "VARCHAR"),
+        ("visual_prompt", "TEXT", "TEXT"),
+        ("generation_id", "TEXT", "VARCHAR"),
+        ("ai_provider", "TEXT", "VARCHAR"),
+        ("ai_model", "TEXT", "VARCHAR"),
+        ("generation_status", "TEXT DEFAULT 'completed'", "VARCHAR DEFAULT 'completed'"),
+        ("generation_latency_ms", "INTEGER", "INTEGER"),
     ]
 
-    with engine.begin() as conn:
-        for table, col, col_def in migrations:
-            res = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
-            existing_cols = {row[1] for row in res}
-            if existing_cols and col not in existing_cols:
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}"))
+    try:
+        with engine.begin() as conn:
+            if engine.dialect.name == "sqlite":
+                migrations = [
+                    ("workspaces", "slug", "TEXT DEFAULT 'acme-growth-labs'"),
+                    ("workspaces", "tier", "TEXT DEFAULT 'Pro Enterprise'"),
+                    ("workspace_members", "name", "TEXT DEFAULT 'Team Member'"),
+                    ("workspace_members", "email", "TEXT DEFAULT 'member@example.com'"),
+                    ("workspace_members", "status", "TEXT DEFAULT 'Active'"),
+                    ("social_accounts", "followers", "TEXT DEFAULT '0'"),
+                    ("social_accounts", "avatar", "TEXT DEFAULT '🌐'"),
+                    ("publishing_queue", "post_title", "TEXT DEFAULT 'Scheduled Creative'"),
+                    ("publishing_queue", "format_label", "TEXT DEFAULT 'Carousel'"),
+                ]
+                for col, col_def, _ in creative_cols:
+                    migrations.append(("creatives", col, col_def))
+
+                for table, col, col_def in migrations:
+                    try:
+                        res = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+                        existing_cols = {row[1] for row in res}
+                        if existing_cols and col not in existing_cols:
+                            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}"))
+                    except Exception:
+                        pass
+            else:
+                # PostgreSQL safe column migration
+                for col, _, pg_def in creative_cols:
+                    try:
+                        conn.execute(text(f"ALTER TABLE creatives ADD COLUMN IF NOT EXISTS {col} {pg_def}"))
+                    except Exception as pg_err:
+                        logger.debug("PostgreSQL column addition note: %s", pg_err)
+    except Exception as exc:
+        logger.warning("Column verification notice: %s", exc)
 
 def get_db():
     db = SessionLocal()

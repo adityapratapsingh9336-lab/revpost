@@ -75,6 +75,39 @@ from app.routers import (
     ai_control
 )
 
+# Mount static uploads and storage asset endpoints
+import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi import HTTPException
+
+os.makedirs(settings.STORAGE_LOCAL_DIR, exist_ok=True)
+os.makedirs(os.path.join(settings.STORAGE_LOCAL_DIR, "generated"), exist_ok=True)
+
+app.mount(
+    "/storage_uploads",
+    StaticFiles(directory=settings.STORAGE_LOCAL_DIR),
+    name="storage_uploads"
+)
+
+@app.get("/api/v1/storage/images/{filename}")
+async def get_storage_image(filename: str):
+    safe_name = os.path.basename(filename)
+    path = os.path.join(settings.STORAGE_LOCAL_DIR, "generated", safe_name)
+    if not os.path.exists(path):
+        path = os.path.join(settings.STORAGE_LOCAL_DIR, safe_name)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Image asset not found")
+    media_type = "image/png" if safe_name.lower().endswith(".png") else "image/jpeg"
+    return FileResponse(
+        path,
+        media_type=media_type,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=86400"
+        }
+    )
+
 app.include_router(health.router)
 app.include_router(workspaces.router)
 app.include_router(brands.router)
