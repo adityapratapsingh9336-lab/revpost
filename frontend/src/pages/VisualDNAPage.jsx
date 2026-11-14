@@ -28,41 +28,73 @@ export const VisualDNAPage = () => {
 
   useEffect(() => {
     let mounted = true;
-    api.getVisualDNA(activeBrand?.id || 'brand_1').then((res) => {
-      if (mounted && res && res.palette) setDna(res);
+    const brandId = activeBrand?.id || 'brand_1';
+    const localKey = `xyz_visual_dna_${brandId}`;
+    const cached = localStorage.getItem(localKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.palette) setDna(parsed);
+      } catch (e) {}
+    }
+
+    api.getVisualDNA(brandId).then((res) => {
+      if (mounted && res && res.palette) {
+        if (!cached) setDna(res);
+      }
     });
     return () => { mounted = false; };
   }, [activeBrand?.id]);
+
+  const persistDnaChanges = async (nextDna) => {
+    const target = nextDna || dna;
+    const brandId = activeBrand?.id || 'brand_1';
+    localStorage.setItem(`xyz_visual_dna_${brandId}`, JSON.stringify(target));
+    setIsSaved(true);
+    if (target.id) {
+      try {
+        const updated = await api.updateVisualDNA(target.id, {
+          palette: target.palette,
+          archetype: target.archetype,
+          typography: target.typography,
+          layoutRules: target.layoutRules,
+        });
+        if (updated && updated.palette) {
+          setDna(updated);
+          localStorage.setItem(`xyz_visual_dna_${brandId}`, JSON.stringify(updated));
+        }
+      } catch (err) {
+        console.warn('Visual DNA sync error:', err);
+      }
+    }
+    setTimeout(() => setIsSaved(false), 2500);
+  };
 
   const handleRebuildFromReferences = async () => {
     setIsRebuilding(true);
     try {
       const res = await api.rebuildVisualDNA(activeBrand?.id || 'brand_1');
-      if (res && res.palette) setDna(res);
+      if (res && res.palette) {
+        setDna(res);
+        const brandId = activeBrand?.id || 'brand_1';
+        localStorage.setItem(`xyz_visual_dna_${brandId}`, JSON.stringify(res));
+      }
     } finally {
       setIsRebuilding(false);
     }
   };
 
-  const handleUpdate = async () => {
-    setIsSaved(true);
-    if (dna.id) {
-      const updated = await api.updateVisualDNA(dna.id, {
-        palette: dna.palette,
-        archetype: dna.archetype,
-        typography: dna.typography,
-        layoutRules: dna.layoutRules,
-      });
-      if (updated && updated.palette) setDna(updated);
-    }
-    setTimeout(() => setIsSaved(false), 2500);
+  const handleUpdate = () => {
+    persistDnaChanges(dna);
   };
 
   const handleSwatchHexChange = (index, newHex) => {
     setDna(prev => {
       const nextPalette = [...prev.palette];
       nextPalette[index] = { ...nextPalette[index], hex: newHex.toUpperCase() };
-      return { ...prev, palette: nextPalette };
+      const updated = { ...prev, palette: nextPalette };
+      persistDnaChanges(updated);
+      return updated;
     });
   };
 

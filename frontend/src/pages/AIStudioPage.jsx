@@ -65,13 +65,16 @@ export const AIStudioPage = () => {
     let mounted = true;
     setIsLoadingRefs(true);
     const brandId = activeBrand?.id || 'brand_1';
+    const cachedRefId = localStorage.getItem(`xyz_selected_ref_${brandId}`);
     api.getReferences(brandId).then((items) => {
       if (mounted) {
         const list = items || [];
         setReferences(list);
         if (list.length > 0) {
-          setSelectedReference(list[0]);
-          if (list[0].archetype) setArchetype(list[0].archetype);
+          const match = cachedRefId ? list.find(r => r.id === cachedRefId) : null;
+          const chosen = match || list[0];
+          setSelectedReference(chosen);
+          if (chosen.archetype) setArchetype(chosen.archetype);
         }
         setIsLoadingRefs(false);
       }
@@ -335,6 +338,7 @@ export const AIStudioPage = () => {
                       onClick={() => {
                         setSelectedReference(ref);
                         if (ref.archetype) setArchetype(ref.archetype);
+                        localStorage.setItem(`xyz_selected_ref_${activeBrand?.id || 'brand_1'}`, ref.id);
                       }}
                       className={cn(
                         'p-2 rounded-xl border text-left cursor-pointer transition-all relative overflow-hidden flex flex-col justify-between group',

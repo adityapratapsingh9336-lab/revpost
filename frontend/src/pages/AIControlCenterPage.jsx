@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Cpu,
@@ -10,7 +10,8 @@ import {
   Plus,
   Lock,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Save
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -28,10 +29,80 @@ export const AIControlCenterPage = () => {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  // Routing preferences
-  const [visionProvider, setVisionProvider] = useState('Anthropic Claude');
-  const [copyProvider, setCopyProvider] = useState('OpenAI');
-  const [fallbackProvider, setFallbackProvider] = useState('Google Gemini');
+  // Routing preferences with auto-persistence
+  const [visionProvider, setVisionProvider] = useState('Anthropic Claude (Sonnet 3.5)');
+  const [copyProvider, setCopyProvider] = useState('OpenAI (GPT-4o)');
+  const [fallbackProvider, setFallbackProvider] = useState('Google Gemini (1.5 Pro)');
+  const [isSavingRouting, setIsSavingRouting] = useState(false);
+  const [routingSavedMessage, setRoutingSavedMessage] = useState(null);
+
+  // Restore saved models on page mount / refresh
+  useEffect(() => {
+    // 1. Instant synchronous restore from localStorage
+    const cached = localStorage.getItem('xyz_ai_routing_matrix');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed.vision) setVisionProvider(parsed.vision);
+        if (parsed.copy) setCopyProvider(parsed.copy);
+        if (parsed.fallback) setFallbackProvider(parsed.fallback);
+      } catch (err) {}
+    }
+
+    // 2. Sync with backend API
+    api.getAIRouting().then((res) => {
+      if (res) {
+        if (res.vision_provider) setVisionProvider(res.vision_provider);
+        if (res.copy_provider) setCopyProvider(res.copy_provider);
+        if (res.fallback_provider) setFallbackProvider(res.fallback_provider);
+        localStorage.setItem('xyz_ai_routing_matrix', JSON.stringify({
+          vision: res.vision_provider,
+          copy: res.copy_provider,
+          fallback: res.fallback_provider,
+        }));
+      }
+    });
+  }, []);
+
+  const persistRouting = async (vision, copy, fallback) => {
+    const payload = {
+      vision: vision || visionProvider,
+      copy: copy || copyProvider,
+      fallback: fallback || fallbackProvider,
+    };
+    // Save to localStorage immediately so no refresh can erase it
+    localStorage.setItem('xyz_ai_routing_matrix', JSON.stringify(payload));
+
+    setIsSavingRouting(true);
+    try {
+      await api.updateAIRouting({
+        vision_provider: payload.vision,
+        copy_provider: payload.copy,
+        fallback_provider: payload.fallback,
+      });
+      setRoutingSavedMessage('Saved & Synced');
+      setTimeout(() => setRoutingSavedMessage(null), 3000);
+    } catch (err) {
+      console.warn('Backend routing sync error:', err);
+    } finally {
+      setIsSavingRouting(false);
+    }
+  };
+
+  const handleVisionChange = (newVal) => {
+    setVisionProvider(newVal);
+    persistRouting(newVal, copyProvider, fallbackProvider);
+  };
+
+  const handleCopyChange = (newVal) => {
+    setCopyProvider(newVal);
+    persistRouting(visionProvider, newVal, fallbackProvider);
+  };
+
+  const handleFallbackChange = (newVal) => {
+    setFallbackProvider(newVal);
+    persistRouting(visionProvider, copyProvider, newVal);
+  };
 
   const handleTestKey = async (providerId) => {
     setIsTestRunning(providerId);
@@ -108,20 +179,45 @@ export const AIControlCenterPage = () => {
 
       {/* Task-Specific Capability Routing Matrix */}
       <Card className="p-5 bg-white border-slate-200 space-y-4">
-        <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-          <Zap className="w-4 h-4 text-slate-500" /> Pipeline Routing Matrix
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-500" /> Pipeline Routing Matrix
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Select which AI model handles each pipeline stage. Changes persist automatically and stay saved across sessions.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            {routingSavedMessage && (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full animate-in fade-in">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                {routingSavedMessage}
+              </span>
+            )}
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Save}
+              isLoading={isSavingRouting}
+              onClick={() => persistRouting(visionProvider, copyProvider, fallbackProvider)}
+            >
+              Save Routing Matrix
+            </Button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
             <span className="font-semibold text-slate-900 block">
               1. Visual DNA & Reference OCR
             </span>
             <p className="text-[11px] text-slate-500">Requires high-accuracy multimodal vision.</p>
             <select
               value={visionProvider}
-              onChange={(e) => setVisionProvider(e.target.value)}
-              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white"
+              onChange={(e) => handleVisionChange(e.target.value)}
+              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white font-medium text-slate-800"
             >
               <option>Anthropic Claude (Sonnet 3.5)</option>
               <option>Google Gemini (1.5 Pro)</option>
@@ -129,15 +225,15 @@ export const AIControlCenterPage = () => {
             </select>
           </div>
 
-          <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
             <span className="font-semibold text-slate-900 block">
               2. Copywriting & Hooks
             </span>
             <p className="text-[11px] text-slate-500">Requires nuanced tone & concise vocabulary.</p>
             <select
               value={copyProvider}
-              onChange={(e) => setCopyProvider(e.target.value)}
-              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white"
+              onChange={(e) => handleCopyChange(e.target.value)}
+              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white font-medium text-slate-800"
             >
               <option>OpenAI (GPT-4o)</option>
               <option>Anthropic Claude (Sonnet 3.5)</option>
@@ -145,15 +241,15 @@ export const AIControlCenterPage = () => {
             </select>
           </div>
 
-          <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
             <span className="font-semibold text-slate-900 block">
               3. Automatic Failover Fallback
             </span>
             <p className="text-[11px] text-slate-500">Triggered on rate-limit, timeout, or outage.</p>
             <select
               value={fallbackProvider}
-              onChange={(e) => setFallbackProvider(e.target.value)}
-              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white"
+              onChange={(e) => handleFallbackChange(e.target.value)}
+              className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white font-medium text-slate-800"
             >
               <option>Google Gemini (1.5 Pro)</option>
               <option>Anthropic Claude (Haiku 3.5)</option>

@@ -15,6 +15,27 @@ class AIGateway:
     # Server-side runtime key cache (never exposed to browser)
     _runtime_keys: Dict[str, str] = {}
 
+    # Pipeline task-to-model routing configuration
+    _routing_config: Dict[str, str] = {
+        "vision_provider": "Anthropic Claude (Sonnet 3.5)",
+        "copy_provider": "OpenAI (GPT-4o)",
+        "fallback_provider": "Google Gemini (1.5 Pro)"
+    }
+
+    @classmethod
+    def get_routing_config(cls) -> Dict[str, str]:
+        return cls._routing_config
+
+    @classmethod
+    def set_routing_config(cls, config: Dict[str, str]) -> Dict[str, str]:
+        if "vision_provider" in config:
+            cls._routing_config["vision_provider"] = str(config["vision_provider"])
+        if "copy_provider" in config:
+            cls._routing_config["copy_provider"] = str(config["copy_provider"])
+        if "fallback_provider" in config:
+            cls._routing_config["fallback_provider"] = str(config["fallback_provider"])
+        return cls._routing_config
+
     PROVIDERS = {
         "anthropic": {
             "name": "Anthropic Claude",

@@ -20,6 +20,8 @@ async function safeFetch(url, options = {}) {
     const res = await fetch(`${BASE_URL}${url}`, {
       headers: {
         'Content-Type': 'application/json',
+        'x-workspace-role': 'owner',
+        'x-user-id': 'user_admin',
         ...options.headers,
       },
       ...options,
@@ -293,6 +295,17 @@ export const api = {
     return await safeFetch('/ai-control/configure-key', {
       method: 'POST',
       body: JSON.stringify({ provider, api_key: apiKey }),
+    });
+  },
+
+  async getAIRouting() {
+    return await safeFetch('/ai-control/routing');
+  },
+
+  async updateAIRouting(payload) {
+    return await safeFetch('/ai-control/routing', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   },
 

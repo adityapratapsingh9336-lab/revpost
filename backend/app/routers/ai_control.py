@@ -71,3 +71,12 @@ def configure_provider_key(payload: dict):
         }
     )
 
+@router.get("/routing", response_model=ApiResponse[dict])
+def get_routing_matrix():
+    return ApiResponse(data=AIGateway.get_routing_config())
+
+@router.post("/routing", response_model=ApiResponse[dict])
+def update_routing_matrix(payload: dict):
+    updated = AIGateway.set_routing_config(payload)
+    return ApiResponse(data=updated)
+
